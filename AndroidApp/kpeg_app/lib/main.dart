@@ -40,7 +40,7 @@ class _PantallaInicioState extends State<PantallaInicio> {
   String _mensajeEstado = '';
 
   // 👇 IP especial del emulador para acceder al PC local
-  static const String _urlApi = 'http://10.0.2.2:8000/upload';
+  static const String _urlApi = 'http://10.105.176.246:8000/upload';
 
   Future<void> _abrirCamara() async {
     final picker = ImagePicker();
