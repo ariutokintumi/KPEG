@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **KPEG** is a ultra-compressed image format (~1-2KB) developed at the ETHGlobal Cannes Hackathon. A photo is encoded into a tiny `.kpeg` file containing a color bitmap, metadata, and an AI scene description. An AI later reconstructs a visually similar photo from that data. The pitch: "Your entire life's photo library fitting on a floppy disk."
 
-**Team:** 2 people. This repo covers the **App**. A teammate builds the encode/decode backend.
+**Team:** 2 people. This repo covers the **App** + **Library API backend** (Python/Flask). A teammate implements the `/encode` and `/decode` AI endpoints.
 
 **Privacy-first:** Face detection AND identification happen entirely on-device. No biometric data leaves the phone. Person selfies are sent to the server only for AI image reconstruction purposes.
 
@@ -78,12 +78,26 @@ KPEG/
 │   │   └── widgets/           # FaceOverlay, MetadataForm, QualitySelector, KpegFileCard, etc.
 │   ├── pubspec.yaml
 │   └── android/
+├── API/                       # Python backend (Flask + SQLite)
+│   ├── api.py                 # Flask app — /health + /library/* + /encode,/decode stubs
+│   ├── database.py            # SQLite schema + CRUD helpers
+│   ├── requirements.txt       # flask>=3.0.0
+│   └── library/               # Photo storage (gitignored)
+│       ├── people/{user_id}/  # Face crop selfies
+│       ├── places/{place_id}/ # Place reference photos
+│       └── objects/{object_id}/ # Object reference photos
 ├── CONTEXT.md                 # Historical dev notes
 ├── ClaudeInfo/                # Project specs (local only, gitignored)
 └── CLAUDE.md
 ```
 
 ## Common Commands
+
+### Python Backend (from `API/`)
+```bash
+pip install -r requirements.txt                # Install dependencies
+python3 api.py                                 # Start API on 0.0.0.0:8000
+```
 
 ### Flutter App (from `AndroidApp/kpeg_app/`)
 ```bash

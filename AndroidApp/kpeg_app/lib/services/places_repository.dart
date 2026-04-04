@@ -39,10 +39,9 @@ class PlacesRepository {
 
   Future<void> syncFromServer(List<Place> serverPlaces) async {
     final db = await _dbService.database;
-    await db.delete('places');
     for (final place in serverPlaces) {
       await db.insert('places', place.toMap(),
-          conflictAlgorithm: ConflictAlgorithm.replace);
+          conflictAlgorithm: ConflictAlgorithm.ignore);
     }
   }
 }

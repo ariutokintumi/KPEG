@@ -1,18 +1,16 @@
 class AppConfig {
-  // Toggle para cambiar entre mock y backend real
-  static const bool useMock = true;
+  // Mock mode OFF — using real API
+  static const bool useMock = false;
 
-  // URL del backend — cambiar según entorno
-  static const String apiBaseUrl = 'http://10.0.2.2:8000'; // emulador
-  // static const String apiBaseUrl = 'http://10.105.176.246:8000'; // móvil físico
+  // Backend URL — change per environment
+  // static const String apiBaseUrl = 'http://10.0.2.2:8000'; // emulator
+  static const String apiBaseUrl = 'http://10.105.176.246:8000'; // physical device
 
-  // Configuración de captura
+  // Capture settings
   static const int imageQuality = 85;
   static const int maxImageWidth = 1920;
 
-  // Subdirectorio para almacenar .kpeg
+  // Local storage subdirectories
   static const String kpegStorageDir = 'kpeg_files';
-
-  // Subdirectorio para fotos de referencia de personas
   static const String peoplePhotosDir = 'people_photos';
 }

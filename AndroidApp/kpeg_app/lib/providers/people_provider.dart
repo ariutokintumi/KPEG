@@ -69,11 +69,14 @@ class PeopleProvider extends ChangeNotifier {
     final saved = await _repo.insertWithEmbeddings(person, embeddings);
 
     // Also register on server (for reconstruction purposes)
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final timestamps = List.generate(selfieFiles.length, (i) => now + i);
     try {
       await _api.registerPerson(
         userId: visibleUserId,
         name: name,
         selfies: selfieFiles,
+        selfieTimestamps: timestamps,
       );
     } catch (_) {
       // Server registration can fail — local data is the priority

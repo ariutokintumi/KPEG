@@ -1,4 +1,6 @@
+library/
 fotos/
+kpeg_library.db
 __pycache__/
 *.pyc
 *.pyo

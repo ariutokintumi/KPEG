@@ -1,8 +1,27 @@
 {
   "permissions": {
     "allow": [
-      "Bash(ls -la \"D:/Desarrollos & Proyectos/KPEG/Repo/KPEG/\")",
-      "Bash(ls -laR \"D:/Desarrollos & Proyectos/KPEG/Repo/KPEG/API\" \"D:/Desarrollos & Proyectos/KPEG/Repo/KPEG/Tooling\" \"D:/Desarrollos & Proyectos/KPEG/Repo/KPEG/Presentation\")"
+      "Bash(tree -L 2 /home/jmaria/PROYECTOS/KPEG/AndroidApp/kpeg_app/lib -o /tmp/lib_tree.txt)",
+      "Read(//tmp/**)",
+      "Bash(/home/jmaria/Flutter/flutter/bin/flutter --version)",
+      "Bash(flutter pub:*)",
+      "Bash(flutter analyze:*)",
+      "Bash(python3 -c \"from database import init_db; init_db\\(\\); print\\('DB OK'\\)\")",
+      "Bash(python3 api.py)",
+      "Bash(curl -s http://localhost:8000/health)",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s http://localhost:8000/library/people)",
+      "Bash(curl -s http://localhost:8000/library/places)",
+      "Bash(curl -s http://localhost:8000/library/objects)",
+      "Bash(curl -s -X DELETE http://localhost:8000/library/people/usr_maria_01)",
+      "Bash(curl -s -X DELETE http://localhost:8000/library/places/place_main_hall)",
+      "Bash(curl -s -X DELETE http://localhost:8000/library/objects/obj_red_couch_01)",
+      "Bash(curl -s -X POST http://localhost:8000/encode)",
+      "Bash(rm -f kpeg_library.db)",
+      "Bash(python3 -c ':*)",
+      "Bash(curl -s -X POST http://localhost:8000/encode -F image=@/tmp/test_photo.jpg -F 'metadata={\"orientation\":\"portrait\",\"timestamp\":1743724800,\"timezone\":\"Europe/Madrid\",\"device_model\":\"Pixel\",\"is_outdoor\":false,\"lens_info\":{\"focal_length_mm\":4.7,\"aperture\":1.8,\"zoom_level\":1.0},\"flash_used\":false,\"session_id\":\"sess_20260404_1430\"}' --output /tmp/test.kpeg)",
+      "Bash(curl -s -X POST http://localhost:8000/decode -F kpeg_file=@/tmp/test.kpeg -F quality=balanced --output /tmp/test_decoded.jpg)",
+      "Bash(kill %1)"
     ]
   }
 }

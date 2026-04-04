@@ -26,10 +26,9 @@ class ObjectsRepository {
 
   Future<void> syncFromServer(List<IndoorObject> serverObjects) async {
     final db = await _dbService.database;
-    await db.delete('objects');
     for (final obj in serverObjects) {
       await db.insert('objects', obj.toMap(),
-          conflictAlgorithm: ConflictAlgorithm.replace);
+          conflictAlgorithm: ConflictAlgorithm.ignore);
     }
   }
 }

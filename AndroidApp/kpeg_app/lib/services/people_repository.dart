@@ -81,13 +81,26 @@ class PeopleRepository {
     await db.delete('people', where: 'user_id = ?', whereArgs: [visibleUserId]);
   }
 
-  /// Replace local cache with server data (keeps embeddings for known people)
+  /// Merge server data without destroying local embeddings.
+  /// Adds new people from server, updates names, but keeps local embeddings intact.
   Future<void> syncFromServer(List<Person> serverPeople) async {
     final db = await _dbService.database;
-    await db.delete('people');
     for (final person in serverPeople) {
-      await db.insert('people', person.toMap(),
-          conflictAlgorithm: ConflictAlgorithm.replace);
+      final existing = await db.query('people',
+          where: 'user_id = ?', whereArgs: [person.visibleUserId]);
+      if (existing.isEmpty) {
+        // New person from server — insert without embeddings
+        await db.insert('people', person.toMap(),
+            conflictAlgorithm: ConflictAlgorithm.ignore);
+      } else {
+        // Existing person — update name/selfie_count but keep id + embeddings
+        await db.update(
+          'people',
+          {'name': person.name, 'selfie_count': person.selfieCount},
+          where: 'user_id = ?',
+          whereArgs: [person.visibleUserId],
+        );
+      }
     }
   }
 }
