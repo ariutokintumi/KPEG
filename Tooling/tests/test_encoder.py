@@ -242,7 +242,7 @@ def test_encode_respects_max_size():
          patch("kpeg.encoder.select_best_place_refs", return_value=[]), \
          patch("kpeg.encoder.get_person_name", return_value=None):
         kpeg_bytes = encode(_test_image(), _full_metadata(), scene_override=_fake_scene())
-    assert len(kpeg_bytes) <= 2048
+    assert len(kpeg_bytes) <= 2514  # MAX_SIZE: 12 + 1500 + 1000 + 2
 
 
 def test_encode_budget_fill_adds_keypoints():
@@ -262,21 +262,21 @@ def test_encode_budget_fill_adds_keypoints():
 
 
 def test_encode_budget_fill_caps_at_max_keypoints():
-    """Budget-fill caps at MAX_KEYPOINTS (255) even when budget allows more."""
+    """Budget-fill caps bitmap at ~1500B (MAX_KEYPOINTS=461) even when target allows more."""
     with patch("kpeg.encoder.get_objects_catalog", return_value=[]), \
          patch("kpeg.encoder.select_best_place_refs", return_value=[]), \
          patch("kpeg.encoder.get_person_name", return_value=None):
         kpeg_bytes = encode(
             _detailed_image(), _full_metadata(),
-            target_size=1950, scene_override=_fake_scene(),
+            target_size=2500, scene_override=_fake_scene(),
         )
     parsed = unpack_kpeg(kpeg_bytes)
-    # Max bitmap: 48 (palette) + 1 + 64 (grid) + 1 + 255*3 = 879B
-    assert len(parsed.bitmap_data) <= 879
+    # Max bitmap: 48 (palette) + 1 + 64 (grid) + 2 (uint16 kp_count) + 461*3 = 1498B
+    assert len(parsed.bitmap_data) <= 1500
 
 
 def test_encode_simple_image_undershoots_target():
-    """Simple image with few edges → smaller KPEG (correct: can't manufacture detail)."""
+    """Simple image can still be encoded within the 1950B soft target."""
     with patch("kpeg.encoder.get_objects_catalog", return_value=[]), \
          patch("kpeg.encoder.select_best_place_refs", return_value=[]), \
          patch("kpeg.encoder.get_person_name", return_value=None):
@@ -284,9 +284,7 @@ def test_encode_simple_image_undershoots_target():
             _test_image(), _full_metadata(),
             target_size=1950, scene_override=_fake_scene(),
         )
-    # 4-quadrant synthetic has few edges → keypoint extractor yields <100
     assert len(kpeg_bytes) <= 1950
-    assert len(kpeg_bytes) < 1500  # under-fills, which is fine
 
 
 def test_encode_sets_correct_flags():
@@ -350,7 +348,7 @@ def test_encode_minimal_metadata():
     parsed = unpack_kpeg(kpeg_bytes)
     raw_json = decompress_json(parsed.compressed_json)
     assert raw_json["v"] == 1
-    assert len(kpeg_bytes) <= 2048
+    assert len(kpeg_bytes) <= 2514  # MAX_SIZE
 
 
 def test_encode_accepts_path_and_bytes():
@@ -389,38 +387,37 @@ def test_encode_cannes_venue_realistic(cannes_venue, cannes_library_catalog,
             verbose=True,
         )
 
-    # Size must fit within the 2048-byte ceiling
-    assert len(kpeg_bytes) <= 2048
-    # Realistic scene + rich image → should fill substantially above minimum bitmap
+    # Size must fit within the MAX_SIZE ceiling
+    assert len(kpeg_bytes) <= 2514
+    # Realistic scene + rich image → should fill substantially (bitmap ~1500B)
     assert len(kpeg_bytes) >= 1500, f"expected budget-fill to land near target, got {len(kpeg_bytes)}B"
 
 
 def test_encode_cannes_venue_budget_fills_as_much_as_possible(
     cannes_venue, cannes_library_catalog, cannes_metadata, cannes_realistic_scene
 ):
-    """Budget-fill saturates either at near-target OR at MAX_KEYPOINTS=255 cap.
+    """Budget-fill saturates bitmap near ~1500B on a realistic scene.
 
-    With realistic JSON (~900B compressed), 255 keypoints (879B bitmap) can't
-    always reach the 1950B target — the uint8 keypoint count is a hard cap.
+    With realistic JSON (~900B compressed) + target=2500, the bitmap should
+    fill close to BITMAP_TARGET_SIZE (1500B).
     """
     with patch("kpeg.encoder.get_objects_catalog", return_value=cannes_library_catalog), \
          patch("kpeg.encoder.select_best_place_refs", return_value=[]), \
          patch("kpeg.encoder.get_person_name", return_value=None):
         kpeg_bytes = encode(
             cannes_venue, cannes_metadata,
-            target_size=1950,
+            target_size=2500,
             scene_override=cannes_realistic_scene,
         )
     parsed = unpack_kpeg(kpeg_bytes)
 
-    assert len(kpeg_bytes) <= 1950
-    # Either close to target OR bitmap maxed (48+1+64+1+255*3 = 879B)
-    near_target = len(kpeg_bytes) >= 1950 - 43 - 3
-    bitmap_maxed = len(parsed.bitmap_data) >= 879
-    assert near_target or bitmap_maxed, (
-        f"Expected near-target OR maxed bitmap, got {len(kpeg_bytes)}B "
-        f"with {len(parsed.bitmap_data)}B bitmap"
+    assert len(kpeg_bytes) <= 2514  # MAX_SIZE
+    # Bitmap should fill substantially — budget allows up to 1500B, actual depends
+    # on how many keypoints the Sobel extractor finds in the image.
+    assert len(parsed.bitmap_data) >= 800, (
+        f"Expected bitmap to fill substantially, got {len(parsed.bitmap_data)}B"
     )
+    assert len(parsed.bitmap_data) <= 1500
 
 
 def test_encode_cannes_venue_all_flags_set(

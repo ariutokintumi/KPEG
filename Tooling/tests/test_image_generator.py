@@ -87,7 +87,8 @@ def test_build_prompt_portrait_compression_from_focal_length():
     assert "portrait compression" in prompt.lower()
 
 
-def test_build_prompt_includes_object_descriptions_not_people():
+def test_build_prompt_includes_people_and_object_descriptions():
+    """People ARE included inline as Subjects so t2i tier sees them too."""
     scene = {
         "s": {"d": "scene"},
         "o": [
@@ -99,7 +100,8 @@ def test_build_prompt_includes_object_descriptions_not_people():
     prompt = build_prompt(scene)
     assert "walnut desk" in prompt
     assert "brass pendant" in prompt
-    assert "man smiling" not in prompt  # people handled separately
+    assert "man smiling" in prompt
+    assert "Subjects:" in prompt  # people get the Subjects: tag
 
 
 def test_build_prompt_includes_text_literally():
@@ -178,7 +180,8 @@ def test_stub_generate_returns_sized_image():
 
 # ═══ Stage 1 (mocked fal) ═══
 
-def test_stage1_generate_calls_submit_with_expected_args():
+def test_stage1_generate_t2i_skips_guide():
+    """Text-to-image models ignore the guide image."""
     guide = _tiny_image()
     expected = _tiny_image(color=(10, 20, 30), w=128, h=128)
     calls = []
@@ -190,16 +193,39 @@ def test_stage1_generate_calls_submit_with_expected_args():
     out = stage1_generate(
         "a prompt", guide,
         model="fal-ai/flux/schnell",
+        model_type="t2i",
         width=128, height=128,
         submit=fake_submit,
     )
     assert out.size == (128, 128)
-    assert len(calls) == 1
     model, args = calls[0]
-    assert "image-to-image" in model
+    assert model == "fal-ai/flux/schnell"
     assert args["prompt"] == "a prompt"
-    assert args["image_url"].startswith("data:image/png;base64,")
     assert args["image_size"] == {"width": 128, "height": 128}
+    assert "image_url" not in args
+    assert "strength" not in args
+
+
+def test_stage1_generate_i2i_passes_guide():
+    """Image-to-image models receive the guide + strength."""
+    guide = _tiny_image()
+    expected = _tiny_image(w=128, h=128)
+    calls = []
+
+    def fake_submit(model, arguments):
+        calls.append((model, arguments))
+        return _fake_fal_result(expected)
+
+    stage1_generate(
+        "p", guide,
+        model="fal-ai/flux/dev/image-to-image",
+        model_type="i2i",
+        width=128, height=128,
+        submit=fake_submit,
+    )
+    model, args = calls[0]
+    assert model == "fal-ai/flux/dev/image-to-image"
+    assert args["image_url"].startswith("data:image/png;base64,")
     assert "strength" in args
 
 
@@ -268,7 +294,7 @@ def test_generate_image_balanced_tier_runs_stage2_when_refs_present():
         submit=fake_submit,
     )
     assert out.getpixel((0, 0)) == (2, 2, 2)  # stage 2 result
-    assert any("flux-pro" in m and "kontext" not in m for m in call_log)
+    assert any("flux/dev/image-to-image" in m for m in call_log)
     assert any("kontext" in m for m in call_log)
 
 

@@ -106,7 +106,7 @@ def test_encode_happy_path_returns_kpeg(client):
     assert resp.status_code == 200
     assert resp.content_type == 'application/octet-stream'
     assert resp.data[:4] == b'KPEG'
-    assert len(resp.data) <= 2048
+    assert len(resp.data) <= 2514
     assert 'X-KPEG-Id' in resp.headers
     assert int(resp.headers['X-KPEG-Size']) == len(resp.data)
 

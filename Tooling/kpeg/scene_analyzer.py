@@ -58,19 +58,43 @@ You are NOT describing for a human. You are writing a PROMPT BLUEPRINT.
 Every field you write is concatenated directly into the FLUX text prompt.
 Write prompt-ready phrases, not prose.
 
-GOOD: "man mid-30s, short beard, blue polo, wide smile, looking left"
-BAD:  "This appears to be a gentleman in his mid-thirties who is smiling"
+=== MOST IMPORTANT: s.d (SCENE DESCRIPTION) ===
+This field is the FLUX primary prompt. It MUST:
+1. Start with the MAIN SUBJECT of the photo (person, object, or event).
+2. Use an ACTION VERB describing what the subject is doing.
+3. Name the subject's INTERACTION with key objects (what they are touching, holding,
+   carrying, pushing, sitting on, looking at, eating, pointing to, etc.).
+4. Read like a news photo caption, not a stock-photo alt-text.
+
+GOOD:  "Woman in black vest pushing a service cart across an indoor event space,
+        tropical plants on either side, exit sign on the back wall."
+BAD:   "Indoor space with woman, cart, plants, and signage."
+
+GOOD:  "Chef plating a dish at a steel counter, steam rising, line cooks working behind him."
+BAD:   "Restaurant kitchen with people."
+
+GOOD:  "Three friends toasting wine glasses over a candlelit dinner table."
+BAD:   "People at dinner."
+
+If there is no obvious human subject, identify the MAIN OBJECT/EVENT as subject
+and describe its state or what is happening around it.
 
 === PEOPLE (pre-tagged by the App, include all of them in "o") ===
 {people_text}
 
 Rules for people:
 - Emit one entry per person above in "o" with n:"person", b:given_bbox, ref:given_ref.
+- Each person's "d" MUST include their ACTION (what they are doing) and their
+  INTERACTION with nearby objects, in addition to appearance.
 - For UNKNOWN persons, your "d" is ALL THE INFO FLUX HAS to reconstruct the face.
   Pack every detail: age range, gender, hair, beard, glasses, skin marks, expression,
-  head pose, clothing, accessories, visible emotions.
-- For KNOWN persons (usr_xxx), the Library has the face photo. Describe expression,
-  pose, clothing only. Do NOT redescribe facial features (comes from the reference).
+  head pose, clothing, accessories, visible emotions, AND what they are doing.
+- For KNOWN persons (usr_xxx), the Library has the face photo. Describe action,
+  interaction, expression, pose, clothing. Do NOT redescribe facial features.
+
+GOOD person d: "man mid-30s, short beard, blue polo, smiling, carrying a laptop,
+                leaning against a wooden desk"
+BAD person d:  "man mid-30s, short beard, blue polo, smiling"
 
 === OBJECTS LIBRARY (smart match against catalog) ===
 Format: obj_id | name | category
@@ -81,6 +105,8 @@ Rules for objects:
 - Emit matches as o entries: n:name, b:bbox, d:brief, ref:obj_id.
 - For detected objects NOT in catalog, emit them WITHOUT the ref field.
 - Skip trivial items (walls, plain floor) unless distinctive.
+- If an object is being used/held/touched by a person, mention that in its "d"
+  (e.g. "pushed by woman" or "stacked with plates").
 
 === TEXT & SIGNS ===
 Extract visible text/signs/logos. Will be rendered LITERALLY.
@@ -89,14 +115,14 @@ Format: {{"text":"EXACT","b":[x0,y0,x1,y1],"type":"sign|logo|label"}}
 === OUTPUT SCHEMA (ultra-short keys, return ONLY this JSON, no other text) ===
 {{
   "s": {{
-    "d": "scene description, prompt-ready, 1-2 sentences",
+    "d": "subject + action + interaction + setting, 1-2 sentences (see rules above)",
     "mood": "single word: casual|formal|professional|festive|calm|...",
     "light": {{"dir":"above|side|front|back|above-left|...", "type":"natural|artificial|mixed", "warmth":"warm|neutral|cool"}},
     "depth": "fg/mg/bg layout, 1 phrase",
     "style": "natural photography|portrait|documentary|..."
   }},
   "o": [
-    {{"n":"person","b":[x0,y0,x1,y1],"d":"...","ref":"usr_xxx|unknownN"}},
+    {{"n":"person","b":[x0,y0,x1,y1],"d":"...appearance + action + interaction...","ref":"usr_xxx|unknownN"}},
     {{"n":"desk","b":[x0,y0,x1,y1],"d":"...","ref":"obj_xxx"}}
   ],
   "t": [{{"text":"...","b":[x0,y0,x1,y1],"type":"sign"}}],

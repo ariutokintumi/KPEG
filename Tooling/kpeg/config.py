@@ -25,8 +25,13 @@ IMAGE_MODEL = os.getenv("KPEG_IMAGE_MODEL", "fal-ai/flux/schnell")
 
 
 # ═══ Format Settings ═══
-TARGET_SIZE = int(os.getenv("KPEG_TARGET_SIZE", "1950"))
-MAX_SIZE = int(os.getenv("KPEG_MAX_SIZE", "2048"))
+# KPEG payload: bitmap carries the color DNA, JSON carries the scene prompt.
+# We aim to fill the bitmap fully (spatial color fidelity) and keep JSON tight.
+BITMAP_TARGET_SIZE = int(os.getenv("KPEG_BITMAP_TARGET", "1500"))  # ~1.5 KB color guide
+JSON_MAX_SIZE = int(os.getenv("KPEG_JSON_MAX", "1000"))            # ~1 KB compressed JSON
+# Derived totals (header 12B + bitmap + JSON + CRC 2B). Narrative: "~1-2 KB".
+TARGET_SIZE = int(os.getenv("KPEG_TARGET_SIZE", "2500"))
+MAX_SIZE = int(os.getenv("KPEG_MAX_SIZE", "2514"))
 
 
 # ═══ Paths ═══
@@ -55,6 +60,8 @@ def print_config_status():
     print(f"  FAL_KEY: {'set (' + FAL_KEY[:12] + '...)' if FAL_KEY else 'NOT SET'}")
     print(f"  VISION_MODEL: {VISION_MODEL}")
     print(f"  IMAGE_MODEL: {IMAGE_MODEL}")
+    print(f"  BITMAP_TARGET_SIZE: {BITMAP_TARGET_SIZE} bytes")
+    print(f"  JSON_MAX_SIZE: {JSON_MAX_SIZE} bytes")
     print(f"  TARGET_SIZE: {TARGET_SIZE} bytes")
     print(f"  MAX_SIZE: {MAX_SIZE} bytes")
     errors = validate_config()

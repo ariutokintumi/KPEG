@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Optional, Union
 from PIL import Image
 
-from .config import TARGET_SIZE, MAX_SIZE
+from .config import TARGET_SIZE, MAX_SIZE, BITMAP_TARGET_SIZE, JSON_MAX_SIZE
 from .palette import extract_custom_palette, build_full_palette
 from .bitmap import (
     generate_grid,
@@ -45,7 +45,7 @@ from .library_reader import (
 )
 from .scene_analyzer import analyze_scene
 
-SAFETY_MARGIN = 40  # reserve a few bytes to absorb compression variance
+SAFETY_MARGIN = 2  # reserve a couple bytes to absorb keypoint-count rounding
 
 
 def _load_image(image_input) -> Image.Image:
@@ -237,13 +237,18 @@ def encode(
     Args:
         image_input: PIL.Image, bytes, or file path.
         metadata: App-provided dict (see CLAUDE.md metadata schema).
-        target_size: Desired KPEG size (budget-fill aims for this, default 1950).
-        max_size: Hard ceiling (default 2048).
+        target_size: Desired total KPEG size (soft target).
+        max_size: Hard ceiling (total KPEG cannot exceed this).
         verbose: Print size breakdown to stdout.
         scene_override: Inject pre-analyzed scene JSON (for testing without Claude API).
 
     Returns:
         KPEG binary file as bytes.
+
+    Budget strategy (the "~1-2 KB" promise):
+      - Bitmap fills ~1500 B with a full color-DNA guide (8x8 grid + many keypoints)
+      - Compressed JSON stays under ~1 KB (trimmed if necessary)
+      - Everything wraps into a compact binary container
     """
     image = _load_image(image_input)
     image_rgb = image.convert("RGB")
@@ -277,30 +282,33 @@ def encode(
     # 5. Initial compressed JSON
     compressed_json = compress_json(full_json)
 
-    # 6. Trim JSON if JSON alone blows the budget
-    while compute_total_size(114, len(compressed_json)) > max_size:
+    # 6. Trim JSON while it exceeds JSON budget (keeps bitmap budget intact)
+    while len(compressed_json) > JSON_MAX_SIZE:
         before = full_json.copy()
         full_json = _trim_json_if_needed(full_json)
         if full_json == before:
             break  # nothing left to trim
         compressed_json = compress_json(full_json)
 
-    # 7. Budget-fill loop: add keypoints to use remaining space
-    bitmap_data = pack_bitmap(custom_palette, grid, keypoints=[])
-    total = compute_total_size(len(bitmap_data), len(compressed_json))
+    # 7. Fill bitmap to BITMAP_TARGET_SIZE (~1.5 KB), bounded by overall target_size
+    base_bitmap_bytes = len(pack_bitmap(custom_palette, grid, keypoints=[]))  # palette+grid+header
+    # bitmap_ceiling respects both the bitmap spec AND the caller's overall target_size
+    header_crc = 14  # 12 header + 2 CRC
+    bitmap_ceiling_from_target = max(0, target_size - len(compressed_json) - header_crc)
+    bitmap_ceiling = min(BITMAP_TARGET_SIZE, bitmap_ceiling_from_target)
+    kp_budget_bytes = max(0, bitmap_ceiling - base_bitmap_bytes - SAFETY_MARGIN)
+    kp_count = min(kp_budget_bytes // 3, MAX_KEYPOINTS)
+
     keypoints = []
+    if kp_count > 0:
+        keypoints = extract_keypoints(image_rgb, full_palette, max_count=kp_count)
+    bitmap_data = pack_bitmap(custom_palette, grid, keypoints)
+    total = compute_total_size(len(bitmap_data), len(compressed_json))
 
-    if total < target_size:
-        budget_bytes = max(0, target_size - total - SAFETY_MARGIN)
-        kp_count = min(budget_bytes // 3, MAX_KEYPOINTS)
-        if kp_count > 0:
-            keypoints = extract_keypoints(image_rgb, full_palette, max_count=kp_count)
-            bitmap_data = pack_bitmap(custom_palette, grid, keypoints)
-            total = compute_total_size(len(bitmap_data), len(compressed_json))
-
-    # 8. Drop keypoints if we overshot max (shouldn't happen with safety margin)
+    # 8. Drop keypoints if we overshot max (safety net)
     while total > max_size and keypoints:
-        keypoints = keypoints[:-max(1, len(keypoints) // 10)]
+        drop = max(1, len(keypoints) // 10)
+        keypoints = keypoints[:-drop]
         bitmap_data = pack_bitmap(custom_palette, grid, keypoints)
         total = compute_total_size(len(bitmap_data), len(compressed_json))
 
@@ -319,8 +327,7 @@ def encode(
 
     if verbose:
         print(
-            f"KPEG encoded: {len(kpeg_bytes)}B / {max_size}B "
-            f"(target {target_size}B)\n"
+            f"KPEG encoded: {len(kpeg_bytes)}B (target {target_size}B, max {max_size}B)\n"
             f"  Header:    12B\n"
             f"  Bitmap:    {len(bitmap_data)}B (grid 8x8 + {len(keypoints)} keypoints)\n"
             f"  JSON:      {len(compressed_json)}B compressed\n"

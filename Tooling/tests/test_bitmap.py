@@ -116,7 +116,7 @@ def test_pack_bitmap_no_keypoints():
     custom = np.zeros((16, 3), dtype=np.uint8)
     grid = np.zeros((8, 8), dtype=np.uint8)
     packed = pack_bitmap(custom, grid, keypoints=[])
-    assert len(packed) == 48 + 1 + 64 + 1  # 114 bytes
+    assert len(packed) == 48 + 1 + 64 + 2  # 115 bytes (uint16 kp_count)
     _, _, kps_out = unpack_bitmap(packed)
     assert kps_out == []
 
@@ -131,16 +131,16 @@ def test_pack_bitmap_different_grid_sizes():
 
 
 def test_compute_bitmap_size():
-    assert compute_bitmap_size(8, 0) == 114    # 48 + 1 + 64 + 1
-    assert compute_bitmap_size(8, 100) == 414  # 114 + 300
-    assert compute_bitmap_size(10, 50) == 300  # 48 + 1 + 100 + 1 + 150
+    assert compute_bitmap_size(8, 0) == 115    # 48 + 1 + 64 + 2
+    assert compute_bitmap_size(8, 100) == 415  # 115 + 300
+    assert compute_bitmap_size(10, 50) == 301  # 48 + 1 + 100 + 2 + 150
 
 
 def test_pack_bitmap_too_many_keypoints():
     custom = np.zeros((16, 3), dtype=np.uint8)
     grid = np.zeros((8, 8), dtype=np.uint8)
     with pytest.raises(ValueError, match="Too many keypoints"):
-        pack_bitmap(custom, grid, [(0, 0, 0)] * 256)
+        pack_bitmap(custom, grid, [(0, 0, 0)] * (MAX_KEYPOINTS + 1))
 
 
 def test_pack_bitmap_non_square_grid():
@@ -190,10 +190,12 @@ def test_full_pipeline_from_image():
 
 
 def test_budget_sizes_match_plan():
-    """Verify size math for the plan's 1950-byte target budget."""
-    # Minimal bitmap (no keypoints) = ~114 bytes
-    assert compute_bitmap_size(8, 0) == 114
-    # Typical bitmap for scene reconstruction: ~250 bytes = 45 keypoints
+    """Verify size math for the ~1.5 KB bitmap target budget."""
+    # Minimal bitmap (no keypoints) = ~115 bytes
+    assert compute_bitmap_size(8, 0) == 115
+    # Typical bitmap with modest fill: 45 keypoints
     assert compute_bitmap_size(8, 45) < 260
-    # Bitmap-heavy mode: ~800 bytes leaves ~1150 for JSON
-    assert compute_bitmap_size(8, 228) < 800
+    # Target fill at 1500B: ~461 keypoints
+    assert compute_bitmap_size(8, 461) == 1498
+    # MAX_KEYPOINTS caps the bitmap under ~1500B
+    assert compute_bitmap_size(8, MAX_KEYPOINTS) <= 1500

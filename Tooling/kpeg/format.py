@@ -1,6 +1,6 @@
 """KPEG binary container format: pack/unpack.
 
-File layout (total <= 2048 bytes):
+File layout (total ~1-2 KB, hard max 2514 bytes):
   0-3    Magic "KPEG" (0x4B504547)
   4      Version (0x01)
   5      Flags (bitfield)

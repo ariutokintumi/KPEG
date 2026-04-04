@@ -4,7 +4,7 @@ Structure (packed bytes):
   48 bytes   Custom palette (16 RGB triplets)
   1 byte     Grid dimension N (typically 8, giving 8x8 = 64 cells)
   N*N bytes  Grid: dominant palette index per cell
-  1 byte     Keypoint count K (0-255)
+  2 bytes    Keypoint count K (uint16 LE, 0-65535)
   3*K bytes  Keypoints: (x_255, y_255, palette_index) per keypoint
 
 Design rationale:
@@ -26,7 +26,8 @@ from .palette import (
 )
 
 DEFAULT_GRID_SIZE = 8
-MAX_KEYPOINTS = 255  # stored as uint8 count
+# 48 (palette) + 1 (grid_size) + 64 (8x8 grid) + 2 (kp_count) + 3*461 = 1498B → fits 1500B target
+MAX_KEYPOINTS = 461
 
 
 def generate_grid(
@@ -65,8 +66,8 @@ def extract_keypoints(
         return []
     max_count = min(max_count, MAX_KEYPOINTS)
 
-    # Lower-res sampling for speed (keypoints are spatial hints, not precise)
-    sample_size = 128
+    # Sample at higher resolution to support more keypoints (bitmap target up to ~1500B)
+    sample_size = 256
     img_small = image.convert("RGB").resize((sample_size, sample_size), Image.Resampling.LANCZOS)
     arr = np.array(img_small)
 
@@ -78,10 +79,10 @@ def extract_keypoints(
     gy = ndimage.sobel(gray, axis=0)
     grad_mag = np.sqrt(gx ** 2 + gy ** 2)
 
-    # Non-max suppression: keep local maxima above mean
-    neighborhood = max(3, sample_size // 32)
+    # Non-max suppression: keep local maxima above 50% of mean for denser coverage
+    neighborhood = max(3, sample_size // 48)
     local_max = ndimage.maximum_filter(grad_mag, size=neighborhood)
-    peaks_mask = (grad_mag == local_max) & (grad_mag > grad_mag.mean())
+    peaks_mask = (grad_mag == local_max) & (grad_mag > grad_mag.mean() * 0.5)
 
     peak_y, peak_x = np.where(peaks_mask)
     if len(peak_x) == 0:
@@ -125,7 +126,10 @@ def pack_bitmap(
     out.extend(encode_custom_palette(custom_palette))  # 48 bytes
     out.append(grid_size)
     out.extend(grid.astype(np.uint8).tobytes())
-    out.append(len(keypoints))
+    # Keypoint count as uint16 LE (allows >255 keypoints for richer color guides)
+    kp_count = len(keypoints)
+    out.append(kp_count & 0xFF)
+    out.append((kp_count >> 8) & 0xFF)
     for x, y, idx in keypoints:
         out.append(x & 0xFF)
         out.append(y & 0xFF)
@@ -145,14 +149,15 @@ def unpack_bitmap(data: bytes) -> tuple[np.ndarray, np.ndarray, list[tuple[int, 
     grid_size = data[offset]
     offset += 1
     grid_bytes = grid_size * grid_size
-    if offset + grid_bytes + 1 > len(data):
+    if offset + grid_bytes + 2 > len(data):
         raise ValueError("Bitmap truncated at grid section")
 
     grid = np.frombuffer(data[offset:offset + grid_bytes], dtype=np.uint8).reshape(grid_size, grid_size).copy()
     offset += grid_bytes
 
-    kp_count = data[offset]
-    offset += 1
+    # Keypoint count: uint16 LE
+    kp_count = data[offset] | (data[offset + 1] << 8)
+    offset += 2
     if offset + kp_count * 3 > len(data):
         raise ValueError("Bitmap truncated at keypoints section")
 
@@ -167,8 +172,8 @@ def unpack_bitmap(data: bytes) -> tuple[np.ndarray, np.ndarray, list[tuple[int, 
 
 
 def compute_bitmap_size(grid_size: int, num_keypoints: int) -> int:
-    """Total bitmap bytes: 48 (palette) + 1 (grid_size) + G*G + 1 (kp_count) + 3*K."""
-    return CUSTOM_PALETTE_BYTES + 1 + grid_size * grid_size + 1 + 3 * num_keypoints
+    """Total bitmap bytes: 48 (palette) + 1 (grid_size) + G*G + 2 (kp_count uint16) + 3*K."""
+    return CUSTOM_PALETTE_BYTES + 1 + grid_size * grid_size + 2 + 3 * num_keypoints
 
 
 def render_bitmap(

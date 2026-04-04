@@ -21,17 +21,18 @@ from PIL import Image, ImageDraw
 from .config import FAL_KEY, IMAGE_MODEL
 
 # Model routing per quality tier.
+# `type` decides whether the bitmap is used as structural guide (i2i) or just text (t2i).
 _STAGE1_MODELS = {
-    "fast": "fal-ai/flux/schnell",
-    "balanced": "fal-ai/flux-pro",
-    "high": "fal-ai/flux-pro/v1.1",
+    "fast":     {"model": "fal-ai/flux/schnell",              "type": "t2i"},
+    "balanced": {"model": "fal-ai/flux/dev/image-to-image",   "type": "i2i"},
+    "high":     {"model": "fal-ai/flux-pro/v1.1",             "type": "t2i"},
 }
 _STAGE2_MODEL = "fal-ai/flux-pro/kontext"
 _UPSCALE_MODEL = "fal-ai/clarity-upscaler"
 
 # Stage 1 strength: how far FLUX is allowed to drift from the color guide.
 # Higher = more creative, lower = sticks closer to the 512px bitmap.
-_IMG2IMG_STRENGTH = 0.85
+_IMG2IMG_STRENGTH = 0.80
 
 
 def _image_to_data_url(img: Image.Image, fmt: str = "PNG") -> str:
@@ -67,15 +68,32 @@ def _extract_image_from_result(result: dict) -> Image.Image:
 def build_prompt(scene: dict, camera: Optional[dict] = None, colors: Optional[list] = None) -> str:
     """Assemble a FLUX-ready positive prompt from the scene JSON.
 
-    Field order matters for FLUX: primary subject first, then style/light/camera hints.
-    Object and person descriptions are appended as bbox-anchored sub-phrases.
+    Ordering strategy (what matters most for FLUX attention):
+      1. Photograph framing + main scene description (subject + action + setting)
+      2. People descriptions inline (each person's appearance + action + interaction)
+      3. Style / mood / light / depth modifiers
+      4. Camera depth-of-field + perspective hints
+      5. Object descriptions (bbox-anchored sub-phrases)
+      6. Literal text signs
+      7. Color palette constraint
     """
     parts = []
     s = scene.get("s") or {}
 
+    # Lead with "Photograph:" framing so FLUX locks into photo-caption mode
     main = s.get("d")
     if main:
-        parts.append(main.strip())
+        parts.append(f"Photograph: {main.strip()}")
+
+    # People inline — they ARE the subjects. Emphasize with "Subjects:" tag.
+    person_phrases = []
+    for o in scene.get("o") or []:
+        if o.get("n") == "person":
+            d = o.get("d")
+            if d:
+                person_phrases.append(d.strip())
+    if person_phrases:
+        parts.append("Subjects: " + "; ".join(person_phrases))
 
     style = s.get("style")
     if style:
@@ -118,7 +136,7 @@ def build_prompt(scene: dict, camera: Optional[dict] = None, colors: Optional[li
     if cam_bits:
         parts.append(", ".join(cam_bits))
 
-    # Object sub-prompts (skip people — handled by Stage 2 refs)
+    # Non-person object sub-prompts
     obj_phrases = []
     for o in scene.get("o") or []:
         if o.get("n") == "person":
@@ -187,23 +205,25 @@ def stage1_generate(
     prompt: str,
     guide_image: Image.Image,
     model: str,
+    model_type: str = "t2i",
     width: int = 1024,
     height: int = 1024,
     submit: Optional[Callable[[str, dict], dict]] = None,
 ) -> Image.Image:
-    """Stage 1: color guide → FLUX img2img → base photo."""
+    """Stage 1: prompt (+ optional color guide for i2i) → FLUX → base photo.
+
+    model_type: "t2i" (text-to-image, guide is ignored) or "i2i" (img2img, guide conditions).
+    """
     submit = submit or _default_submit
-    guide_url = _image_to_data_url(guide_image, fmt="PNG")
-    # FLUX img2img endpoint (path varies per model; fal resolves to ...-image-to-image)
-    img2img_model = f"{model}/image-to-image" if "image-to-image" not in model else model
     args = {
         "prompt": prompt,
-        "image_url": guide_url,
-        "strength": _IMG2IMG_STRENGTH,
         "num_images": 1,
         "image_size": {"width": width, "height": height},
     }
-    result = submit(img2img_model, args)
+    if model_type == "i2i":
+        args["image_url"] = _image_to_data_url(guide_image, fmt="PNG")
+        args["strength"] = _IMG2IMG_STRENGTH
+    result = submit(model, args)
     return _extract_image_from_result(result)
 
 
@@ -280,10 +300,11 @@ def generate_image(
         return stub_generate(prompt, guide_image, width=width, height=height)
 
     # Stage 1
-    stage1_model = _STAGE1_MODELS[quality]
+    tier = _STAGE1_MODELS[quality]
     base = stage1_generate(
         prompt, guide_image,
-        model=stage1_model,
+        model=tier["model"],
+        model_type=tier["type"],
         width=width, height=height,
         submit=submit,
     )
