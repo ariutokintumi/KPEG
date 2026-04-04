@@ -1,0 +1,8 @@
+{
+  "enabledPlugins": {
+    "hackathon-helper@hedera-skills": true,
+    "native-services-js@hedera-skills": true,
+    "system-contracts@hedera-skills": true,
+    "agent-kit-plugin@hedera-skills": true
+  }
+}
