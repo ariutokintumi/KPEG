@@ -25,7 +25,8 @@
       "Bash(pip install:*)",
       "Bash(pip --version)",
       "Bash(python -c \"from kpeg.config import print_config_status; print_config_status\\(\\)\")",
-      "Bash(python -c \":*)"
+      "Bash(python -c \":*)",
+      "Bash(python -m pytest tests/ -v)"
     ]
   }
 }
