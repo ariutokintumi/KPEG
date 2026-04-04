@@ -6,6 +6,7 @@ class KpegFile {
   final String? originalPhotoPath;
   final int fileSizeBytes;
   final String? sceneHint;
+  final String? thumbnailPath; // Local-only mini thumbnail
 
   KpegFile({
     this.id,
@@ -15,6 +16,7 @@ class KpegFile {
     this.originalPhotoPath,
     required this.fileSizeBytes,
     this.sceneHint,
+    this.thumbnailPath,
   });
 
   Map<String, dynamic> toMap() {
@@ -26,6 +28,7 @@ class KpegFile {
       'original_photo_path': originalPhotoPath,
       'file_size_bytes': fileSizeBytes,
       'scene_hint': sceneHint,
+      'thumbnail_path': thumbnailPath,
     };
   }
 
@@ -38,10 +41,10 @@ class KpegFile {
       originalPhotoPath: map['original_photo_path'] as String?,
       fileSizeBytes: map['file_size_bytes'] as int,
       sceneHint: map['scene_hint'] as String?,
+      thumbnailPath: map['thumbnail_path'] as String?,
     );
   }
 
-  /// Tamaño legible: "1.4 KB"
   String get fileSizeFormatted {
     if (fileSizeBytes < 1024) return '$fileSizeBytes B';
     return '${(fileSizeBytes / 1024).toStringAsFixed(1)} KB';

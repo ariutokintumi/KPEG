@@ -9,7 +9,6 @@ import '../services/api_service.dart';
 import '../services/face_detection_service.dart';
 import '../services/face_recognition_service.dart';
 import '../services/kpeg_repository.dart';
-import '../services/people_repository.dart';
 import '../services/sensor_service.dart';
 
 enum CaptureState { idle, captured, detecting, encoding, success, error }
@@ -20,7 +19,6 @@ class CaptureProvider extends ChangeNotifier {
   final SensorService _sensors;
   final FaceDetectionService _faceDetection;
   final FaceCropService _faceCrop;
-  final PeopleRepository _peopleRepo;
 
   CaptureProvider({
     required ApiService api,
@@ -28,13 +26,11 @@ class CaptureProvider extends ChangeNotifier {
     required SensorService sensors,
     required FaceDetectionService faceDetection,
     required FaceCropService faceCrop,
-    required PeopleRepository peopleRepo,
   })  : _api = api,
         _kpegRepo = kpegRepo,
         _sensors = sensors,
         _faceDetection = faceDetection,
-        _faceCrop = faceCrop,
-        _peopleRepo = peopleRepo;
+        _faceCrop = faceCrop;
 
   CaptureState state = CaptureState.idle;
   File? photo;
@@ -95,12 +91,10 @@ class CaptureProvider extends ChangeNotifier {
         imageHeight: photoHeight!,
       );
 
-      // Auto-identify each face via server API
-      final allPeople = await _peopleRepo.getAll();
+      // Auto-identify each face on-device (privacy-first)
       for (final face in detectedFaces) {
         try {
-          // Crop face and send to server for identification
-          final cropBytes = await _faceCrop.cropFaceJpeg(
+          final embedding = await _faceCrop.extractEmbedding(
             photo!,
             left: face.boundingBox.left,
             top: face.boundingBox.top,
@@ -110,21 +104,15 @@ class CaptureProvider extends ChangeNotifier {
             imageHeight: photoHeight!,
           );
 
-          final result = await _api.identifyFace(cropBytes);
-          if (result.userId != null && result.confidence > 0.3) {
-            // Find the person in our local cache
-            final matched = allPeople
-                .where((p) => p.visibleUserId == result.userId)
-                .toList();
-            if (matched.isNotEmpty) {
-              face.personId = matched.first.id;
-              face.userId = matched.first.visibleUserId;
-              face.personName = matched.first.name;
-              face.confidence = result.confidence;
-            }
+          final match = _faceCrop.findMatch(embedding);
+          if (match.person != null) {
+            face.personId = match.person!.id;
+            face.userId = match.person!.visibleUserId;
+            face.personName = match.person!.name;
+            face.confidence = match.confidence;
           }
         } catch (_) {
-          // Identification failed — leave as untagged
+          // Embedding extraction failed — leave as untagged
         }
       }
     } catch (_) {

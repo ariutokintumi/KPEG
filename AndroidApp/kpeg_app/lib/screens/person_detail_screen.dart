@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:image/image.dart' as img;
 import 'package:provider/provider.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
@@ -9,7 +10,6 @@ import '../config/app_config.dart';
 import '../config/theme.dart';
 import '../providers/people_provider.dart';
 import '../services/face_detection_service.dart';
-import '../services/face_recognition_service.dart';
 import '../widgets/kpeg_gradient_background.dart';
 
 class PersonDetailScreen extends StatefulWidget {
@@ -31,7 +31,6 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
   static const int _maxSelfies = 5;
 
   final _faceDetection = FaceDetectionService();
-  final _faceCrop = FaceCropService();
 
   @override
   void dispose() {
@@ -80,15 +79,18 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
 
       // Crop the first (largest) face
       final face = faces.first;
-      final cropBytes = await _faceCrop.cropFaceJpeg(
-        file,
-        left: face.boundingBox.left,
-        top: face.boundingBox.top,
-        right: face.boundingBox.right,
-        bottom: face.boundingBox.bottom,
-        imageWidth: width,
-        imageHeight: height,
-      );
+      final imageBytes = await file.readAsBytes();
+      final image = img.decodeImage(imageBytes);
+      if (image == null) throw Exception('Failed to decode');
+      final bb = face.boundingBox;
+      final padX = (bb.right - bb.left) * 0.1;
+      final padY = (bb.bottom - bb.top) * 0.1;
+      final cx = (bb.left - padX).clamp(0, width - 1).toInt();
+      final cy = (bb.top - padY).clamp(0, height - 1).toInt();
+      final cw = ((bb.right - bb.left) + padX * 2).toInt().clamp(1, width - cx);
+      final ch = ((bb.bottom - bb.top) + padY * 2).toInt().clamp(1, height - cy);
+      final cropped = img.copyCrop(image, x: cx, y: cy, width: cw, height: ch);
+      final cropBytes = Uint8List.fromList(img.encodeJpg(cropped, quality: 85));
 
       setState(() {
         _selfies.add((original: file, faceCrop: cropBytes));

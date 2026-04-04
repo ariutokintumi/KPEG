@@ -10,6 +10,7 @@ class Place {
   final double? lat;
   final double? lng;
   final int photoCount;
+  final String? thumbnailPath;
   final DateTime createdAt;
 
   Place({
@@ -22,6 +23,7 @@ class Place {
     this.lat,
     this.lng,
     this.photoCount = 0,
+    this.thumbnailPath,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
@@ -56,6 +58,7 @@ class Place {
       'lat': lat,
       'lng': lng,
       'photo_count': photoCount,
+      'thumbnail_path': thumbnailPath,
       'created_at': createdAt.toIso8601String(),
     };
   }
@@ -71,6 +74,7 @@ class Place {
       lat: map['lat'] as double?,
       lng: map['lng'] as double?,
       photoCount: (map['photo_count'] as int?) ?? 0,
+      thumbnailPath: map['thumbnail_path'] as String?,
       createdAt: DateTime.parse(map['created_at'] as String),
     );
   }

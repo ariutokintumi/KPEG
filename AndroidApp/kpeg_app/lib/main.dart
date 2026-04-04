@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'config/theme.dart';
 import 'providers/capture_provider.dart';
 import 'providers/gallery_provider.dart';
+import 'providers/objects_provider.dart';
 import 'providers/people_provider.dart';
 import 'providers/places_provider.dart';
 import 'services/api_service.dart';
@@ -11,6 +12,7 @@ import 'services/face_detection_service.dart';
 import 'services/face_recognition_service.dart';
 import 'services/kpeg_repository.dart';
 import 'services/people_repository.dart';
+import 'services/objects_repository.dart';
 import 'services/places_repository.dart';
 import 'services/sensor_service.dart';
 import 'screens/capture_screen.dart';
@@ -31,9 +33,10 @@ class KpegApp extends StatelessWidget {
     final kpegRepo = KpegRepository(dbService);
     final peopleRepo = PeopleRepository(dbService);
     final placesRepo = PlacesRepository(dbService);
+    final objectsRepo = ObjectsRepository(dbService);
     final sensorService = SensorService();
     final faceDetectionService = FaceDetectionService();
-    final faceCropService = FaceCropService();
+    final faceCropService = FaceCropService(peopleRepo);
 
     return MultiProvider(
       providers: [
@@ -44,7 +47,6 @@ class KpegApp extends StatelessWidget {
             sensors: sensorService,
             faceDetection: faceDetectionService,
             faceCrop: faceCropService,
-            peopleRepo: peopleRepo,
           ),
         ),
         ChangeNotifierProvider(
@@ -54,10 +56,17 @@ class KpegApp extends StatelessWidget {
           ),
         ),
         ChangeNotifierProvider(
-          create: (_) => PeopleProvider(repo: peopleRepo, api: apiService),
+          create: (_) => PeopleProvider(
+            repo: peopleRepo,
+            api: apiService,
+            faceCrop: faceCropService,
+          ),
         ),
         ChangeNotifierProvider(
           create: (_) => PlacesProvider(repo: placesRepo, api: apiService),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => ObjectsProvider(repo: objectsRepo, api: apiService),
         ),
       ],
       child: MaterialApp(
@@ -92,6 +101,7 @@ class _MainShellState extends State<MainShell> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<PeopleProvider>().syncFromServer();
       context.read<PlacesProvider>().syncFromServer();
+      context.read<ObjectsProvider>().syncFromServer();
     });
   }
 
@@ -122,8 +132,8 @@ class _MainShellState extends State<MainShell> {
             label: 'Gallery',
           ),
           NavigationDestination(
-            icon: Icon(Icons.library_books_outlined),
-            selectedIcon: Icon(Icons.library_books_rounded, color: KpegTheme.accent),
+            icon: Icon(Icons.local_library_outlined),
+            selectedIcon: Icon(Icons.local_library_rounded, color: KpegTheme.accent),
             label: 'Library',
           ),
         ],

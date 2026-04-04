@@ -220,6 +220,10 @@ class _PlaceSelector extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       backgroundColor: KpegTheme.bgDark1,
+      isScrollControlled: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.5,
+      ),
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) {
@@ -235,7 +239,10 @@ class _PlaceSelector extends StatelessWidget {
                       fontSize: 18,
                       fontWeight: FontWeight.w700)),
               const SizedBox(height: 16),
-              ...places.map((place) => ListTile(
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: places.map((place) => ListTile(
                     leading: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
@@ -261,7 +268,9 @@ class _PlaceSelector extends StatelessWidget {
                       onChanged(place);
                       Navigator.pop(ctx);
                     },
-                  )),
+                  )).toList(),
+                ),
+              ),
             ],
           ),
         );

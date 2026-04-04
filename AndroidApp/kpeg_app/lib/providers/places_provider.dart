@@ -1,5 +1,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image/image.dart' as img;
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 import '../models/place.dart';
 import '../services/api_service.dart';
 import '../services/places_repository.dart';
@@ -52,6 +55,14 @@ class PlacesProvider extends ChangeNotifier {
       photos: photos,
     );
 
+    // Generate local thumbnail from first photo
+    String? thumbnailPath;
+    if (photos.isNotEmpty) {
+      try {
+        thumbnailPath = await _saveThumbnail(photos.first, 'place_$placeId');
+      } catch (_) {}
+    }
+
     final place = Place(
       placeId: placeId,
       name: name,
@@ -61,10 +72,26 @@ class PlacesProvider extends ChangeNotifier {
       lat: lat,
       lng: lng,
       photoCount: photos.length,
+      thumbnailPath: thumbnailPath,
     );
     await _repo.upsert(place);
     await loadPlaces();
     return place;
+  }
+
+  Future<String> _saveThumbnail(File photo, String prefix) async {
+    final bytes = await photo.readAsBytes();
+    final image = img.decodeImage(bytes);
+    if (image == null) throw Exception('decode failed');
+    final resized = img.copyResize(image,
+        width: image.width >= image.height ? 120 : null,
+        height: image.height > image.width ? 120 : null);
+    final appDir = await getApplicationDocumentsDirectory();
+    final dir = Directory(p.join(appDir.path, 'library_thumbs'));
+    if (!await dir.exists()) await dir.create(recursive: true);
+    final path = p.join(dir.path, '${prefix}_${DateTime.now().millisecondsSinceEpoch}.jpg');
+    await File(path).writeAsBytes(img.encodeJpg(resized, quality: 60));
+    return path;
   }
 
   Future<void> deletePlace(String placeId) async {

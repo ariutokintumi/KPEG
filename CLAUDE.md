@@ -6,50 +6,59 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **KPEG** is a ultra-compressed image format (~1-2KB) developed at the ETHGlobal Cannes Hackathon. A photo is encoded into a tiny `.kpeg` file containing a color bitmap, metadata, and an AI scene description. An AI later reconstructs a visually similar photo from that data. The pitch: "Your entire life's photo library fitting on a floppy disk."
 
-**Team:** 2 people. This repo covers the **App**. A teammate builds the encode/decode + people library backend.
+**Team:** 2 people. This repo covers the **App**. A teammate builds the encode/decode backend.
+
+**Privacy-first:** Face detection AND identification happen entirely on-device. No biometric data leaves the phone. Person selfies are sent to the server only for AI image reconstruction purposes.
 
 **Language:** English for UI, Spanish for internal comments and documentation.
 
 ## Architecture
 
 ```
-┌──────────────────────────────────┐
-│   Flutter App (Android)          │
-│                                  │
-│  - Camera capture                │
-│  - Metadata collection (sensors) │
-│  - Face detection (ML Kit)       │  ON-DEVICE
-│  - .kpeg local storage           │
-│  - Gallery + decode viewer       │
-│  - People cache (SQLite)         │
-│                                  │
-│                                  │     ┌──────────────────────┐
-│                                  │────▶│  Backend API         │
-│                                  │◀────│  (teammate's server)  │
-│                                  │     │  POST /encode        │
-│                                  │     │  POST /decode        │
-│                                  │     │  /library/people/*   │
-│                                  │     │  GET  /health        │
-│                                  │     └──────────────────────┘
-└──────────────────────────────────┘
+┌──────────────────────────────────────┐
+│   Flutter App (Android)              │
+│                                      │
+│  - Camera capture                    │
+│  - Metadata collection (sensors)     │
+│  - Face detection (ML Kit)           │  ON-DEVICE
+│  - Face identification (embeddings)  │  PRIVACY-FIRST
+│  - Library: People, Places, Objects  │
+│  - .kpeg local storage + thumbnails  │
+│  - Gallery + decode viewer           │
+│                                      │
+│                                      │   ┌──────────────────────┐
+│  Registration (selfies/photos) ─────────▶│  Backend API         │
+│                                      │◀──│  (teammate's server)  │
+│  Encode/decode ─────────────────────────▶│  POST /encode        │
+│                                      │   │  POST /decode        │
+│                                      │   │  /library/people/*   │
+│                                      │   │  /library/places/*   │
+│                                      │   │  /library/objects/*  │
+│                                      │   │  GET  /health        │
+│                                      │   └──────────────────────┘
+└──────────────────────────────────────┘
 ```
 
 **All services on localhost** (same WiFi, hackathon).
-**Face detection on-device** (ML Kit). **Face identification via server** (`POST /library/people/identify`).
-**People library on server** — app caches locally, syncs on launch.
+**Face identification is 100% on-device** — embeddings stored in local SQLite, cosine similarity matching.
+**Server receives selfies/photos only for reconstruction** — not for identification.
+**Library data (People, Places, Objects)** lives on server + cached locally with thumbnails.
 
 ## Data Flow
 
 ### Encoding (photo → .kpeg)
 1. User captures photo in the app
-2. App collects metadata from sensors (GPS, compass, tilt, orientation, device model, etc.)
-3. App runs **on-device face detection/recognition** (Google ML Kit) → gets bboxes + matched user_ids from local SQLite
-4. App sends photo (multipart) + metadata JSON to **`POST /encode`**
-5. Backend returns `.kpeg` binary file (≤2KB)
-6. App saves `.kpeg` to local storage
+2. App collects metadata from sensors (GPS, compass, tilt, orientation, device model)
+3. App runs **on-device face detection** (ML Kit) → gets bboxes
+4. App runs **on-device face identification** (64x64 grayscale embeddings, cosine similarity) → matches against stored profiles
+5. Auto-tags by confidence: >0.8 green, 0.5-0.8 yellow, <0.5 red ("Unknown")
+6. User can correct/assign faces manually, select indoor place
+7. App sends photo + metadata JSON to **`POST /encode`**
+8. Backend returns `.kpeg` binary file (≤2KB)
+9. App saves `.kpeg` + local thumbnail to storage
 
 ### Decoding (.kpeg → reconstructed photo)
-1. User taps a `.kpeg` file in the gallery
+1. User taps a `.kpeg` file in the gallery (shows local thumbnail)
 2. App sends it to **`POST /decode`** with quality param (fast/balanced/high)
 3. Backend returns reconstructed JPEG (takes 5-15 seconds)
 4. App displays the result
@@ -58,14 +67,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```
 KPEG/
-├── AndroidApp/kpeg_app/     # Flutter app
-│   ├── lib/                 # Dart source code
-│   ├── pubspec.yaml         # Flutter dependencies
-│   └── android/             # Android config (manifest, gradle)
-├── API/                     # Legacy/utilities (may be repurposed or removed)
-├── CONTEXT.md               # Historical dev notes and solved problems
-├── ClaudeInfo/              # Project specs and reference images (local only, gitignored)
-└── CLAUDE.md                # This file
+├── AndroidApp/kpeg_app/       # Flutter app
+│   ├── lib/
+│   │   ├── main.dart          # MultiProvider + BottomNav (Capture, Gallery, Library)
+│   │   ├── config/            # AppConfig (URLs, mock toggle) + Theme
+│   │   ├── models/            # Person, Place, IndoorObject, KpegFile, CaptureMetadata, DetectedFace
+│   │   ├── services/          # API, Database, Repos, Sensors, FaceDetection, FaceCrop
+│   │   ├── providers/         # Capture, Gallery, People, Places, Objects
+│   │   ├── screens/           # Capture, Gallery, Decode, Library, PersonDetail, PlaceDetail, ObjectDetail
+│   │   └── widgets/           # FaceOverlay, MetadataForm, QualitySelector, KpegFileCard, etc.
+│   ├── pubspec.yaml
+│   └── android/
+├── CONTEXT.md                 # Historical dev notes
+├── ClaudeInfo/                # Project specs (local only, gitignored)
+└── CLAUDE.md
 ```
 
 ## Common Commands
@@ -79,26 +94,39 @@ flutter analyze                                # Lint/static analysis
 flutter clean && flutter pub get               # Clean rebuild
 ```
 
+## API Contracts
 
-## Encode/Decode API Contract (teammate's backend)
+### Core Pipeline (teammate's backend)
 
-### POST /encode
-- **Content-Type:** multipart/form-data
-- **Fields:**
-  - `image` — JPEG file (max 10MB)
-  - `metadata` — JSON string (see below)
-- **Response:** `200 OK`, `application/octet-stream` — raw .kpeg binary (≤2KB)
-- **Error:** `422`, JSON `{"error": "description"}`
+| Endpoint | Method | Request | Response |
+|----------|--------|---------|----------|
+| `/encode` | POST | multipart: `image` (JPEG) + `metadata` (JSON) | `.kpeg` binary (≤2KB) |
+| `/decode` | POST | multipart: `kpeg_file` + `quality` | Reconstructed JPEG |
+| `/health` | GET | — | `{"status": "ok"}` |
 
-### POST /decode
-- **Content-Type:** multipart/form-data
-- **Fields:**
-  - `kpeg_file` — .kpeg binary
-  - `quality` — `"fast"`, `"balanced"`, or `"high"` (default: `"balanced"`)
-- **Response:** `200 OK`, `image/jpeg` — reconstructed image
+### People Library
 
-### GET /health
-- Health check endpoint
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/library/people` | POST | Register person (user_id, name, 2-5 selfies) |
+| `/library/people` | GET | List all people |
+| `/library/people/{user_id}` | DELETE | Delete person |
+
+### Places Library
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/library/places` | POST | Register place (place_id, name, building, floor, 2-5 photos) |
+| `/library/places` | GET | List all places |
+| `/library/places/{place_id}` | DELETE | Delete place |
+
+### Objects Library
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/library/objects` | POST | Register object (object_id, name, category, 1-3 photos) |
+| `/library/objects` | GET | List all objects |
+| `/library/objects/{object_id}` | DELETE | Delete object |
 
 ## Metadata JSON Structure
 
@@ -106,98 +134,114 @@ Sent as the `metadata` field in `/encode`:
 
 ```json
 {
-  "orientation": "landscape",              // REQUIRED: from camera sensor
-  "timestamp": 1743724800,                 // REQUIRED: Unix epoch seconds
-  "timezone": "Europe/Madrid",             // REQUIRED: IANA timezone
-  "device_model": "Pixel 8 Pro",           // REQUIRED: Build.MODEL
-  "is_outdoor": true,                      // REQUIRED: user toggle in UI
+  "orientation": "portrait",
+  "timestamp": 1743724800,
+  "timezone": "Europe/Madrid",
+  "device_model": "Pixel 8 Pro",
+  "is_outdoor": false,
 
-  "lat": 40.4168,                          // LOCATION (if permission granted)
+  "lat": 40.4168,
   "lng": -3.7038,
-  "altitude": 650.0,
-  "compass_heading": 225.0,               // 0-360, 0=North, from SensorManager
-  "camera_tilt": -5.0,                    // -90 to 90, 0=horizontal
+  "compass_heading": 225.0,
+  "camera_tilt": -5.0,
 
-  "people": [                              // PEOPLE (on-device ML Kit + local DB)
-    {"user_id": "usr_maria_01", "bbox": [0.3, 0.1, 0.55, 0.9]}
+  "people": [
+    {"user_id": "usr_maria_01", "bbox": [0.30, 0.10, 0.55, 0.90]}
   ],
 
-  "lens_info": {                           // CAMERA (from EXIF)
-    "focal_length_mm": 6.9,
-    "aperture": 1.8,
-    "zoom_level": 1.0
-  },
-  "flash_used": false,
+  "scene_hint": "team lunch",
+  "tags": ["hackathon", "team"],
 
-  "scene_hint": "lunch at Plaza Mayor",    // USER CONTEXT (optional)
-  "tags": ["madrid", "friends"],
+  "indoor_place_id": "place_venue_main_hall",
+  "indoor_description": "near the window, 2nd floor",
 
-  "indoor_place_id": null,                 // Only if is_outdoor=false
-  "indoor_description": null               // Free text if indoor
+  "session_id": "sess_20260404_1430"
 }
 ```
 
-- All `null` fields can be omitted — API handles missing data
-- `bbox` coordinates are normalized 0.0–1.0 (not pixels), relative to image dimensions, top-left origin
-- Capture sensor data AT the moment of photo capture (compass/tilt change fast)
+- All null fields can be omitted
+- `bbox` normalized 0.0–1.0, top-left origin
+- `session_id` auto-generated, reused within 30-min windows
+- `is_outdoor` defaults to `false` (hackathon = indoor focus)
 
-## Face Detection + Server-Side Identification
+## Face Detection + On-Device Identification (privacy-first)
 
-### Flow
+### How It Works
 1. ML Kit detects faces on-device (bounding boxes)
-2. Each face is cropped and sent to `POST /library/people/identify` on the server
-3. Server returns `user_id` + `confidence` for each face
-4. App auto-tags based on confidence: >0.8 green, 0.5-0.8 yellow, <0.5 red ("Unknown")
-5. User can manually correct/assign faces via bottom sheet picker
+2. Each face cropped, resized to 64x64 grayscale → embedding (4096 bytes)
+3. Embedding compared against stored profiles via cosine similarity
+4. Auto-tags by confidence: >0.8 green, 0.5-0.8 yellow, <0.5 red ("Unknown")
+5. User can manually correct/assign via bottom sheet picker
+6. "Unknown" person always available as standard option
 
-### People Library API (server-side)
-- `POST /library/people` — register person (name, user_id, 2-5 selfies)
-- `GET /library/people` — list all registered people
-- `DELETE /library/people/{user_id}` — delete person
-- `POST /library/people/identify` — send face crop JPEG, returns match
+### Hybrid Model
+- **Identification: ON-DEVICE** — face embeddings in local SQLite, no network calls
+- **Registration: LOCAL + SERVER** — embeddings stored locally for identification, selfies sent to server for reconstruction AI
+- `POST /library/people/identify` is NOT used — identification is purely local
 
-### Local Cache
-- SQLite `people` table caches server data (user_id, name, selfie_count)
-- Synced on app launch via `GET /library/people`
-- "Unknown" person always available as standard option
+### Selfie Registration Flow
+1. User takes 2-5 selfies (different angles)
+2. ML Kit detects face in each → auto-crops to face only
+3. Face crops shown as preview (not full photos)
+4. Embeddings extracted and stored in local `face_embeddings` table
+5. Face crop files sent to server via `POST /library/people`
+6. First face crop saved as local thumbnail
 
-## Flutter App Screens
+## Local Storage (SQLite)
 
-1. **Capture screen** — Camera preview + metadata controls (indoor/outdoor toggle, scene hint text field, tag input)
-2. **Encoding feedback** — "Encoding..." spinner after capture → calls `/encode` → saves .kpeg
-3. **Gallery view** — List of saved .kpeg files (filename, date). Tap to decode
-4. **Decode viewer** — Quality selector (fast/balanced/high) → calls `/decode` → displays reconstructed JPEG
-5. **People management** — Create/view/delete person profiles with reference photos
+| Table | Purpose | Key columns |
+|-------|---------|-------------|
+| `people` | Person profiles cache | user_id, name, selfie_count, thumbnail_path |
+| `face_embeddings` | On-device face matching | person_id, embedding (BLOB, 4096 bytes) |
+| `places` | Indoor places cache | place_id, name, building, floor, lat, lng, thumbnail_path |
+| `objects` | Indoor objects cache | object_id, name, category, thumbnail_path |
+| `kpeg_files` | Encoded .kpeg files | filename, file_path, file_size_bytes, thumbnail_path |
+
+**Thumbnails** are local-only (120px, 60% JPEG quality). Never sent to the server. Used for:
+- Gallery: preview of each .kpeg file
+- Library People: face crop thumbnail
+- Library Places: first photo thumbnail
+- Library Objects: first photo thumbnail
+
+## App Screens
+
+### Bottom Navigation (3 tabs)
+1. **Capture** — camera icon
+2. **Gallery** — photo library icon
+3. **Library** — library book icon (`local_library`)
+
+### Capture Flow
+- Take photo → ML Kit face detection → auto-identification → face overlay (green/yellow/red)
+- Indoor/Outdoor segmented button (default: Indoor)
+- When Indoor: place selector (searchable, nearby GPS), indoor description text field
+- Scene hint + tags input
+- "Encode .kpeg" button → encode → save with thumbnail
+
+### Gallery
+- List of .kpeg files with thumbnail, filename, size, date, scene hint
+- Tap → Decode screen with quality selector (Fast/Balanced/High)
+- Delete with confirmation
+
+### Library (3 sub-tabs)
+- **People**: face thumbnails, name, selfie count. Add with 2-5 selfies (auto face crop).
+- **Places**: photo thumbnails, name, building, floor. Add with 2-5 photos + location.
+- **Objects**: photo thumbnails, name, category. Add with 1-3 photos + category picker.
 
 ## Critical Android Configuration
 
 The `AndroidManifest.xml` must include:
-- `flutterEmbedding=2` meta-data (required for Flutter 3.41.6, build fails without it)
+- `flutterEmbedding=2` meta-data (required for Flutter 3.41.6)
 - `CAMERA` and `INTERNET` permissions
-- `ACCESS_FINE_LOCATION` and `ACCESS_COARSE_LOCATION` permissions (for GPS metadata)
-- `usesCleartextTraffic=true` (for local HTTP in hackathon)
+- `ACCESS_FINE_LOCATION` and `ACCESS_COARSE_LOCATION` permissions
+- `usesCleartextTraffic=true` (for local HTTP)
 - `FileProvider` with `@xml/file_paths` (required by `image_picker`)
 
 ## Key Gotchas
 
 - **Emulator networking:** Use `10.0.2.2` instead of `localhost` to reach the host machine
-- **Physical device:** PC and phone must be on same WiFi; open firewall ports (`sudo ufw allow <port>`)
-- **IP changes:** Device IP may change with DHCP; verify with `ip a` before building
-- **Decode is slow:** 5-15 seconds for AI reconstruction — UI must show loading state
-- **Sensor timing:** Compass heading and camera tilt must be captured AT the moment of photo capture, not after
-- **Weather API:** Deprioritized for the hackathon, send `null`
-
-## Hackathon Priorities
-
-**Must have:**
-1. Photo capture with metadata collection
-2. On-device face detection + recognition + profile management
-3. Integration with teammate's /encode endpoint
-4. .kpeg local storage and gallery
-5. Integration with /decode to view reconstructed photos
-
-**Nice to have:**
-- Indoor/outdoor toggle with place description
-- Scene hint and tags
-- Quality selector for decode
-- EXIF lens info extraction
+- **Physical device:** Same WiFi + firewall ports open (`sudo ufw allow <port>`)
+- **IP changes:** Verify with `ip a` before building for physical device
+- **Decode is slow:** 5-15 seconds for AI reconstruction — show loading state
+- **Sensor timing:** Compass/tilt captured AT photo moment, not after
+- **DB migrations:** Version bumps drop all tables — uninstall app on device when schema changes
+- **Mock mode:** `AppConfig.useMock = true` for testing without backend. Set to `false` + update `apiBaseUrl` when backend is ready.

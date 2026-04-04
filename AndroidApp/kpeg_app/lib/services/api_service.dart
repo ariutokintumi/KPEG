@@ -210,6 +210,55 @@ class ApiService {
   }
 
   // ══════════════════════════════════════
+  // OBJECTS LIBRARY
+  // ══════════════════════════════════════
+
+  Future<Map<String, dynamic>> registerObject({
+    required String objectId,
+    required String name,
+    required String category,
+    required List<File> photos,
+  }) async {
+    if (useMock) {
+      await Future.delayed(const Duration(seconds: 1));
+      return {'object_id': objectId, 'status': 'registered'};
+    }
+
+    final uri = Uri.parse('$baseUrl/library/objects');
+    final request = http.MultipartRequest('POST', uri);
+    request.fields['object_id'] = objectId;
+    request.fields['name'] = name;
+    request.fields['category'] = category;
+    for (final photo in photos) {
+      request.files.add(await http.MultipartFile.fromPath('photos', photo.path));
+    }
+
+    final response = await request.send().timeout(const Duration(seconds: 30));
+    final body = await response.stream.bytesToString();
+    if (response.statusCode == 200) return jsonDecode(body);
+    throw Exception('Failed to register object: $body');
+  }
+
+  Future<List<Map<String, dynamic>>> listObjects() async {
+    if (useMock) return [];
+
+    final response = await http.get(Uri.parse('$baseUrl/library/objects')).timeout(
+      const Duration(seconds: 10),
+    );
+    if (response.statusCode == 200) {
+      return List<Map<String, dynamic>>.from(jsonDecode(response.body));
+    }
+    throw Exception('Failed to list objects: ${response.body}');
+  }
+
+  Future<void> deleteObject(String objectId) async {
+    if (useMock) return;
+    await http.delete(Uri.parse('$baseUrl/library/objects/$objectId')).timeout(
+      const Duration(seconds: 10),
+    );
+  }
+
+  // ══════════════════════════════════════
   // MOCK IMPLEMENTATIONS
   // ══════════════════════════════════════
 
