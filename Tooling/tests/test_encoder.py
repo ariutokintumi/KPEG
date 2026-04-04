@@ -367,3 +367,138 @@ def test_encode_accepts_path_and_bytes():
         kpeg_from_bytes = encode(img_bytes, _full_metadata(), scene_override=_fake_scene())
     parsed = unpack_kpeg(kpeg_from_bytes)
     assert parsed.version == 1
+
+
+# ═══ Integration tests: real photo + realistic library catalog + realistic scene ═══
+
+def test_encode_cannes_venue_realistic(cannes_venue, cannes_library_catalog,
+                                        cannes_metadata, cannes_realistic_scene):
+    """Full encode on the real Cannes photo with a production-like library catalog."""
+    fake_place_refs = [
+        {"id": "place_palais_festivals_p1", "hint": "facing 145deg, main hall view",
+         "file_path": "/lib/place_p1.jpg"},
+        {"id": "place_palais_festivals_p2", "hint": "facing 90deg, entrance doors",
+         "file_path": "/lib/place_p2.jpg"},
+    ]
+    with patch("kpeg.encoder.get_objects_catalog", return_value=cannes_library_catalog), \
+         patch("kpeg.encoder.select_best_place_refs", return_value=fake_place_refs), \
+         patch("kpeg.encoder.get_person_name", return_value=None):
+        kpeg_bytes = encode(
+            cannes_venue, cannes_metadata,
+            scene_override=cannes_realistic_scene,
+            verbose=True,
+        )
+
+    # Size must fit within the 2048-byte ceiling
+    assert len(kpeg_bytes) <= 2048
+    # Realistic scene + rich image → should fill substantially above minimum bitmap
+    assert len(kpeg_bytes) >= 1500, f"expected budget-fill to land near target, got {len(kpeg_bytes)}B"
+
+
+def test_encode_cannes_venue_budget_fills_as_much_as_possible(
+    cannes_venue, cannes_library_catalog, cannes_metadata, cannes_realistic_scene
+):
+    """Budget-fill saturates either at near-target OR at MAX_KEYPOINTS=255 cap.
+
+    With realistic JSON (~900B compressed), 255 keypoints (879B bitmap) can't
+    always reach the 1950B target — the uint8 keypoint count is a hard cap.
+    """
+    with patch("kpeg.encoder.get_objects_catalog", return_value=cannes_library_catalog), \
+         patch("kpeg.encoder.select_best_place_refs", return_value=[]), \
+         patch("kpeg.encoder.get_person_name", return_value=None):
+        kpeg_bytes = encode(
+            cannes_venue, cannes_metadata,
+            target_size=1950,
+            scene_override=cannes_realistic_scene,
+        )
+    parsed = unpack_kpeg(kpeg_bytes)
+
+    assert len(kpeg_bytes) <= 1950
+    # Either close to target OR bitmap maxed (48+1+64+1+255*3 = 879B)
+    near_target = len(kpeg_bytes) >= 1950 - 43 - 3
+    bitmap_maxed = len(parsed.bitmap_data) >= 879
+    assert near_target or bitmap_maxed, (
+        f"Expected near-target OR maxed bitmap, got {len(kpeg_bytes)}B "
+        f"with {len(parsed.bitmap_data)}B bitmap"
+    )
+
+
+def test_encode_cannes_venue_all_flags_set(
+    cannes_venue, cannes_library_catalog, cannes_metadata, cannes_realistic_scene
+):
+    """Realistic scene has person, text, session, library refs, indoor — most flags fire."""
+    fake_place_refs = [
+        {"id": "place_palais_festivals_p1", "hint": "main hall", "file_path": "/lib/p1.jpg"},
+    ]
+    with patch("kpeg.encoder.get_objects_catalog", return_value=cannes_library_catalog), \
+         patch("kpeg.encoder.select_best_place_refs", return_value=fake_place_refs), \
+         patch("kpeg.encoder.get_person_name", return_value=None):
+        kpeg_bytes = encode(
+            cannes_venue, cannes_metadata,
+            scene_override=cannes_realistic_scene,
+        )
+    parsed = unpack_kpeg(kpeg_bytes)
+    assert parsed.has_people is True
+    assert parsed.has_text is True
+    assert parsed.has_library_refs is True
+    assert parsed.session_linked is True
+    assert parsed.is_outdoor is False
+    assert parsed.is_portrait is False  # 1280x960 landscape
+    assert parsed.aspect_w == 4 and parsed.aspect_h == 3
+
+
+def test_encode_cannes_venue_json_round_trip(
+    cannes_venue, cannes_library_catalog, cannes_metadata, cannes_realistic_scene
+):
+    """Decode the Cannes KPEG and verify all refs + metadata survived."""
+    fake_place_refs = [
+        {"id": "place_palais_festivals_p1", "hint": "main hall", "file_path": "/lib/p1.jpg"},
+    ]
+    with patch("kpeg.encoder.get_objects_catalog", return_value=cannes_library_catalog), \
+         patch("kpeg.encoder.select_best_place_refs", return_value=fake_place_refs), \
+         patch("kpeg.encoder.get_person_name", return_value=None):
+        kpeg_bytes = encode(
+            cannes_venue, cannes_metadata,
+            scene_override=cannes_realistic_scene,
+        )
+
+    parsed = unpack_kpeg(kpeg_bytes)
+    raw = decompress_json(parsed.compressed_json)
+
+    # Verify library refs made it through
+    refs = {o.get("ref") for o in raw["o"]}
+    assert "obj_bistro_chair_blk" in refs
+    assert "obj_service_cart_gsf" in refs
+    assert "obj_palm_tropical" in refs
+    assert "unknown1" in refs  # App's unknown_0 normalized to unknown1
+
+    # Verify place_refs wired in
+    assert raw["p"]["place_refs"][0]["id"] == "place_palais_festivals_p1"
+
+    # Verify text detected
+    texts = [t["text"] for t in raw["t"]]
+    assert "GSF" in texts
+    assert any("PALAIS" in t for t in texts)
+
+    # Verify metadata preservation
+    assert raw["m"]["loc"] == [43.5528, 7.0174]
+    assert raw["m"]["compass"] == 145.0
+    assert raw["sid"] == "sess_20260404_1800"
+
+
+def test_encode_cannes_verbose_prints_breakdown(
+    cannes_venue, cannes_library_catalog, cannes_metadata, cannes_realistic_scene, capsys
+):
+    """verbose=True prints a byte-breakdown log."""
+    with patch("kpeg.encoder.get_objects_catalog", return_value=cannes_library_catalog), \
+         patch("kpeg.encoder.select_best_place_refs", return_value=[]), \
+         patch("kpeg.encoder.get_person_name", return_value=None):
+        encode(
+            cannes_venue, cannes_metadata,
+            scene_override=cannes_realistic_scene, verbose=True,
+        )
+    captured = capsys.readouterr()
+    assert "KPEG encoded:" in captured.out
+    assert "Bitmap:" in captured.out
+    assert "JSON:" in captured.out
+    assert "Flags:" in captured.out
