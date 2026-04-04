@@ -1,15 +1,29 @@
 import json
 import os
 import shutil
+import sys
 import uuid
+from pathlib import Path
 from flask import Flask, request, jsonify
 from database import init_db, insert_person, list_people, delete_person, person_exists
 from database import insert_place, list_places, delete_place, place_exists
 from database import insert_object, list_objects, delete_object, object_exists
 
+# Import KPEG engine from Tooling/
+_TOOLING_DIR = Path(__file__).resolve().parent.parent / 'Tooling'
+if str(_TOOLING_DIR) not in sys.path:
+    sys.path.insert(0, str(_TOOLING_DIR))
+from kpeg.encoder import encode as kpeg_encode
+from kpeg.decoder import decode as kpeg_decode, inspect as kpeg_inspect
+from kpeg.format import unpack_kpeg, pack_kpeg, FLAG_HAS_PEOPLE
+from kpeg.compression import decompress_json, compress_json
+
 app = Flask(__name__)
 
 LIBRARY_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'library')
+KPEG_DIR = os.path.join(LIBRARY_DIR, '_kpeg')
+
+MAX_UPDATE_UNKNOWNS = 5
 
 
 def ensure_dir(path):
@@ -33,126 +47,146 @@ def health():
 @app.route('/encode', methods=['POST'])
 def encode():
     """
-    MOCKUP: saves the original image and returns a fake .kpeg binary.
-    The .kpeg contains a header + metadata + reference to the saved original.
-    Replace this with the real AI encoding when ready.
+    Real KPEG encode: photo + metadata → ≤2KB .kpeg binary.
+    Pipeline: palette + bitmap + Claude Vision scene JSON + library refs + Brotli.
     """
     if 'image' not in request.files:
         return jsonify({'error': 'No image provided'}), 422
 
-    image = request.files['image']
+    image_file = request.files['image']
     metadata_str = request.form.get('metadata', '{}')
 
     try:
         metadata = json.loads(metadata_str)
     except json.JSONDecodeError:
-        metadata = {}
+        return jsonify({'error': 'Invalid metadata JSON'}), 422
 
-    # Save original image for decode mockup
-    originals_dir = ensure_dir(os.path.join(LIBRARY_DIR, '_originals'))
-    image_id = str(uuid.uuid4())[:8]
-    original_path = os.path.join(originals_dir, f'{image_id}.jpg')
-    image.save(original_path)
+    try:
+        image_bytes = image_file.read()
+        kpeg_binary = kpeg_encode(image_bytes, metadata)
+    except Exception as e:
+        print(f'❌ Encode failed: {e}')
+        return jsonify({'error': f'Encode failed: {e}'}), 500
 
-    # Build fake .kpeg binary: header + JSON payload (kept under 2KB)
-    # Trim metadata to fit in 2KB
-    kpeg_payload = {
-        '_mockup': True,
-        '_image_id': image_id,
-        'orientation': metadata.get('orientation', 'portrait'),
-        'timestamp': metadata.get('timestamp', 0),
-        'device_model': metadata.get('device_model', ''),
-        'people': metadata.get('people', []),
-        'scene_hint': metadata.get('scene_hint', ''),
-        'session_id': metadata.get('session_id', ''),
+    # Persist the .kpeg file on disk for inspection/batch updates later
+    ensure_dir(KPEG_DIR)
+    kpeg_id = str(uuid.uuid4())[:8]
+    kpeg_path = os.path.join(KPEG_DIR, f'{kpeg_id}.kpeg')
+    with open(kpeg_path, 'wb') as f:
+        f.write(kpeg_binary)
+
+    print(f'📦 Encoded: {kpeg_id} ({len(kpeg_binary)} bytes)')
+    return kpeg_binary, 200, {
+        'Content-Type': 'application/octet-stream',
+        'X-KPEG-Id': kpeg_id,
+        'X-KPEG-Size': str(len(kpeg_binary)),
     }
-    payload_bytes = json.dumps(kpeg_payload, separators=(',', ':')).encode('utf-8')
-
-    # KPEG header (6 bytes) + payload
-    kpeg_binary = b'KPEG\x01\x00' + payload_bytes
-
-    # Ensure ≤2KB
-    if len(kpeg_binary) > 2048:
-        kpeg_binary = kpeg_binary[:2048]
-
-    print(f'📦 Encoded: {image_id} ({len(kpeg_binary)} bytes) — MOCKUP')
-    return kpeg_binary, 200, {'Content-Type': 'application/octet-stream'}
 
 
 @app.route('/decode', methods=['POST'])
 def decode():
     """
-    MOCKUP: reads the .kpeg, returns the original photo with visual changes
-    (color shift + "Generated with AI" watermark) so it looks like a reconstruction.
-    Replace this with the real AI reconstruction when ready.
+    Real KPEG decode: .kpeg binary → reconstructed JPEG via FLUX.
+    quality: "fast" | "balanced" | "high".
     """
-    from PIL import Image, ImageDraw, ImageFont, ImageEnhance, ImageFilter
-    import io
-
     if 'kpeg_file' not in request.files:
         return jsonify({'error': 'No kpeg_file provided'}), 422
 
     quality = request.form.get('quality', 'balanced')
+    if quality not in ('fast', 'balanced', 'high'):
+        return jsonify({'error': 'quality must be fast|balanced|high'}), 422
+
     kpeg_data = request.files['kpeg_file'].read()
 
-    # Parse .kpeg mockup: skip 6-byte header, rest is JSON
     try:
-        payload = json.loads(kpeg_data[6:].decode('utf-8'))
-        image_id = payload.get('_image_id')
-    except (json.JSONDecodeError, UnicodeDecodeError):
-        return jsonify({'error': 'Invalid .kpeg file'}), 422
+        jpeg_bytes = kpeg_decode(kpeg_data, quality=quality)
+    except ValueError as e:
+        return jsonify({'error': f'Invalid .kpeg file: {e}'}), 422
+    except Exception as e:
+        print(f'❌ Decode failed: {e}')
+        return jsonify({'error': f'Decode failed: {e}'}), 500
 
-    if not image_id:
-        return jsonify({'error': 'Cannot decode — not a mockup .kpeg'}), 422
+    print(f'🖼️  Decoded: {len(kpeg_data)}B -> {len(jpeg_bytes)}B JPEG (quality={quality})')
+    return jpeg_bytes, 200, {'Content-Type': 'image/jpeg'}
 
-    original_path = os.path.join(LIBRARY_DIR, '_originals', f'{image_id}.jpg')
-    if not os.path.exists(original_path):
-        return jsonify({'error': f'Original image not found: {image_id}'}), 422
 
-    # Apply visual modifications to simulate AI reconstruction
-    img = Image.open(original_path)
+@app.route('/update_people', methods=['POST'])
+def update_people():
+    """Batch re-tag unknown persons in a .kpeg without re-processing the image.
 
-    # 1. Slight blur (simulates AI smoothing)
-    img = img.filter(ImageFilter.GaussianBlur(radius=0.8))
+    Request: multipart/form-data
+      - kpeg_file: existing .kpeg binary
+      - mapping:   JSON string, e.g. {"unknown1": "usr_maria", "unknown2": "usr_judge"}
 
-    # 2. Boost saturation (AI-generated images tend to be more vivid)
-    enhancer = ImageEnhance.Color(img)
-    img = enhancer.enhance(1.3)
+    Response: application/octet-stream with the updated .kpeg file.
+    """
+    if 'kpeg_file' not in request.files:
+        return jsonify({'error': 'No kpeg_file provided'}), 422
 
-    # 3. Slight warm tint (shift towards AI-generated look)
-    r, g, b = img.split()
-    r = r.point(lambda x: min(255, int(x * 1.05)))
-    b = b.point(lambda x: int(x * 0.92))
-    img = Image.merge('RGB', (r, g, b))
-
-    # 4. Add "Generated with AI" watermark
-    draw = ImageDraw.Draw(img)
-    text = "Generated with AI"
-    # Calculate font size relative to image (roughly 3% of width)
-    font_size = max(16, img.width // 30)
+    mapping_raw = request.form.get('mapping', '{}')
     try:
-        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
-    except (OSError, IOError):
-        font = ImageFont.load_default()
+        mapping = json.loads(mapping_raw)
+    except json.JSONDecodeError:
+        return jsonify({'error': 'Invalid mapping JSON'}), 422
 
-    bbox = draw.textbbox((0, 0), text, font=font)
-    text_w = bbox[2] - bbox[0]
-    text_h = bbox[3] - bbox[1]
-    x = img.width - text_w - 20
-    y = img.height - text_h - 20
+    if not isinstance(mapping, dict) or not mapping:
+        return jsonify({'error': 'mapping must be a non-empty object'}), 422
+    if len(mapping) > MAX_UPDATE_UNKNOWNS:
+        return jsonify({
+            'error': f'Too many mappings: {len(mapping)} (max {MAX_UPDATE_UNKNOWNS})'
+        }), 422
 
-    # Semi-transparent background behind text
-    draw.rectangle([x - 10, y - 6, x + text_w + 10, y + text_h + 6],
-                   fill=(0, 0, 0, 180))
-    draw.text((x, y), text, fill=(0, 200, 150), font=font)
+    kpeg_data = request.files['kpeg_file'].read()
 
-    # Encode to JPEG
-    output = io.BytesIO()
-    img.save(output, format='JPEG', quality=85)
-    image_bytes = output.getvalue()
+    try:
+        kpeg = unpack_kpeg(kpeg_data)
+        scene = decompress_json(kpeg.compressed_json)
+    except ValueError as e:
+        return jsonify({'error': f'Invalid .kpeg file: {e}'}), 422
 
-    print(f'🖼️  Decoded: {image_id} (quality={quality}) — MOCKUP with AI effect')
-    return image_bytes, 200, {'Content-Type': 'image/jpeg'}
+    # Swap refs in the people list
+    updated = 0
+    for obj in scene.get('o', []):
+        current = obj.get('ref', '')
+        if current in mapping:
+            obj['ref'] = mapping[current]
+            updated += 1
+
+    if updated == 0:
+        return jsonify({'error': 'No matching unknowns found in .kpeg'}), 422
+
+    # Re-compress + re-pack (bitmap unchanged, flags unchanged except people)
+    new_compressed = compress_json(scene)
+    try:
+        new_kpeg = pack_kpeg(
+            bitmap_data=kpeg.bitmap_data,
+            compressed_json=new_compressed,
+            flags=kpeg.flags | FLAG_HAS_PEOPLE,
+            aspect_w=kpeg.aspect_w,
+            aspect_h=kpeg.aspect_h,
+        )
+    except ValueError as e:
+        return jsonify({'error': f'Updated .kpeg exceeds size limit: {e}'}), 422
+
+    print(f'🔁 Updated: {updated}/{len(mapping)} mappings applied, {len(kpeg_data)}B -> {len(new_kpeg)}B')
+    return new_kpeg, 200, {
+        'Content-Type': 'application/octet-stream',
+        'X-KPEG-Updated': str(updated),
+        'X-KPEG-Size': str(len(new_kpeg)),
+    }
+
+
+@app.route('/inspect', methods=['POST'])
+def inspect_kpeg():
+    """Debug helper: return KPEG header + scene summary as JSON."""
+    if 'kpeg_file' not in request.files:
+        return jsonify({'error': 'No kpeg_file provided'}), 422
+    kpeg_data = request.files['kpeg_file'].read()
+    try:
+        info = kpeg_inspect(kpeg_data)
+    except ValueError as e:
+        return jsonify({'error': f'Invalid .kpeg file: {e}'}), 422
+    return jsonify(info)
 
 
 # ══════════════════════════════════════
@@ -351,6 +385,7 @@ if __name__ == '__main__':
     ensure_dir(os.path.join(LIBRARY_DIR, 'people'))
     ensure_dir(os.path.join(LIBRARY_DIR, 'places'))
     ensure_dir(os.path.join(LIBRARY_DIR, 'objects'))
+    ensure_dir(KPEG_DIR)
     print(f'📂 Library: {LIBRARY_DIR}')
     print(f'🚀 KPEG API on http://0.0.0.0:8000')
     app.run(host='0.0.0.0', port=8000, debug=True)
