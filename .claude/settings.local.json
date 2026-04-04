@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la \"D:/Desarrollos & Proyectos/KPEG/Repo/KPEG/\")",
+      "Bash(ls -laR \"D:/Desarrollos & Proyectos/KPEG/Repo/KPEG/API\" \"D:/Desarrollos & Proyectos/KPEG/Repo/KPEG/Tooling\" \"D:/Desarrollos & Proyectos/KPEG/Repo/KPEG/Presentation\")"
+    ]
+  }
+}
