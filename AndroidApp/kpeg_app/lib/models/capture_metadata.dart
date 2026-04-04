@@ -1,35 +1,29 @@
 import 'detected_face.dart';
 
 class CaptureMetadata {
-  // Required
   final String orientation;
   final int timestamp;
   final String timezone;
   final String deviceModel;
   final bool isOutdoor;
 
-  // Location (optional)
   final double? lat;
   final double? lng;
   final double? compassHeading;
   final double? cameraTilt;
 
-  // People detected
   final List<DetectedFace> people;
 
-  // User context (optional)
   final String? sceneHint;
   final List<String> tags;
 
-  // Camera (optional)
-  final Map<String, dynamic>? lensInfo;
-  final bool? flashUsed;
+  // Lens info — mandatory (best effort)
+  final Map<String, dynamic> lensInfo;
+  final bool flashUsed;
 
-  // Indoor (only if !isOutdoor)
   final String? indoorPlaceId;
   final String? indoorDescription;
 
-  // Session
   final String? sessionId;
 
   CaptureMetadata({
@@ -45,14 +39,13 @@ class CaptureMetadata {
     this.people = const [],
     this.sceneHint,
     this.tags = const [],
-    this.lensInfo,
-    this.flashUsed,
+    this.lensInfo = const {},
+    this.flashUsed = false,
     this.indoorPlaceId,
     this.indoorDescription,
     this.sessionId,
   });
 
-  /// Build JSON for POST /encode. Omits null fields.
   Map<String, dynamic> toJson() {
     final json = <String, dynamic>{
       'orientation': orientation,
@@ -67,18 +60,36 @@ class CaptureMetadata {
     if (compassHeading != null) json['compass_heading'] = compassHeading;
     if (cameraTilt != null) json['camera_tilt'] = cameraTilt;
 
-    final taggedPeople = people
-        .where((f) => f.isTagged)
-        .map((f) => f.toMetadataJson())
-        .whereType<Map<String, dynamic>>()
-        .toList();
-    if (taggedPeople.isNotEmpty) json['people'] = taggedPeople;
+    // People: tagged faces keep their user_id, untagged get "unknown_N"
+    // Excluded faces (user removed tag) are omitted entirely
+    // unknown_N numbering: left-to-right by bbox left coordinate
+    final nonExcluded =
+        people.where((f) => !f.excluded).toList();
+    // Sort by left coordinate for unknown_N numbering
+    nonExcluded.sort(
+        (a, b) => a.boundingBox.left.compareTo(b.boundingBox.left));
 
-    if (sceneHint != null && sceneHint!.isNotEmpty) json['scene_hint'] = sceneHint;
+    int unknownCounter = 0;
+    final peopleJson = <Map<String, dynamic>>[];
+    for (final face in nonExcluded) {
+      final entry = face.toMetadataJson(
+        unknownIndex: face.isTagged ? null : unknownCounter,
+      );
+      if (entry != null) {
+        if (!face.isTagged) unknownCounter++;
+        peopleJson.add(entry);
+      }
+    }
+    if (peopleJson.isNotEmpty) json['people'] = peopleJson;
+
+    if (sceneHint != null && sceneHint!.isNotEmpty) {
+      json['scene_hint'] = sceneHint;
+    }
     if (tags.isNotEmpty) json['tags'] = tags;
 
-    if (lensInfo != null) json['lens_info'] = lensInfo;
-    if (flashUsed != null) json['flash_used'] = flashUsed;
+    // Lens info — always include
+    if (lensInfo.isNotEmpty) json['lens_info'] = lensInfo;
+    json['flash_used'] = flashUsed;
 
     if (!isOutdoor) {
       if (indoorPlaceId != null) json['indoor_place_id'] = indoorPlaceId;

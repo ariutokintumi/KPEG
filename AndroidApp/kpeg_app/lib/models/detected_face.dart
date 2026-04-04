@@ -1,24 +1,17 @@
-import 'dart:typed_data';
 import 'dart:ui';
 
 class DetectedFace {
-  /// Bounding box in image pixel coordinates
   final Rect boundingBox;
-
-  /// Original image dimensions (for normalization)
   final int imageWidth;
   final int imageHeight;
 
-  /// Assigned person (null if not tagged)
   int? personId;
   String? userId;
   String? personName;
-
-  /// Match confidence from face recognition (0.0-1.0)
   double confidence;
 
-  /// Face embedding extracted from the crop
-  Uint8List? embedding;
+  /// If true, user explicitly removed this face — omit from metadata entirely
+  bool excluded;
 
   DetectedFace({
     required this.boundingBox,
@@ -28,10 +21,9 @@ class DetectedFace {
     this.userId,
     this.personName,
     this.confidence = 0.0,
-    this.embedding,
+    this.excluded = false,
   });
 
-  /// Normalized bbox 0.0-1.0 [left, top, right, bottom]
   List<double> get normalizedBbox {
     return [
       (boundingBox.left / imageWidth).clamp(0.0, 1.0),
@@ -43,20 +35,24 @@ class DetectedFace {
 
   bool get isTagged => personId != null;
 
-  /// Confidence tier for UI color-coding
   ConfidenceTier get tier {
+    if (excluded) return ConfidenceTier.unknown;
     if (!isTagged) return ConfidenceTier.unknown;
     if (confidence >= 0.8) return ConfidenceTier.high;
     if (confidence >= 0.5) return ConfidenceTier.medium;
     return ConfidenceTier.low;
   }
 
-  /// For metadata JSON
-  Map<String, dynamic>? toMetadataJson() {
-    if (!isTagged) return null;
+  /// Build metadata JSON for this face.
+  /// [unknownIndex] is the N in "unknown_N" for untagged faces.
+  /// Returns null only if face is excluded.
+  Map<String, dynamic>? toMetadataJson({int? unknownIndex}) {
+    if (excluded) return null;
     return {
-      'user_id': userId,
-      'bbox': normalizedBbox.map((v) => double.parse(v.toStringAsFixed(2))).toList(),
+      'user_id': isTagged ? userId : 'unknown_$unknownIndex',
+      'bbox': normalizedBbox
+          .map((v) => double.parse(v.toStringAsFixed(2)))
+          .toList(),
     };
   }
 }

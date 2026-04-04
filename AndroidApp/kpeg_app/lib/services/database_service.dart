@@ -16,7 +16,7 @@ class DatabaseService {
 
     return openDatabase(
       path,
-      version: 8,
+      version: 9,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
       onConfigure: (db) async {
@@ -51,8 +51,6 @@ class DatabaseService {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         place_id TEXT NOT NULL UNIQUE,
         name TEXT NOT NULL,
-        building TEXT,
-        floor TEXT,
         description TEXT,
         lat REAL,
         lng REAL,
@@ -89,7 +87,7 @@ class DatabaseService {
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 8) {
+    if (oldVersion < 9) {
       await db.execute('DROP TABLE IF EXISTS face_embeddings');
       await db.execute('DROP TABLE IF EXISTS people');
       await db.execute('DROP TABLE IF EXISTS places');

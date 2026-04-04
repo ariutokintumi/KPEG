@@ -140,12 +140,13 @@ class CaptureProvider extends ChangeNotifier {
     }
   }
 
-  /// Quitar asignación de persona
-  void unassignFace(int faceIndex) {
+  /// Exclude face from metadata entirely (user removes tag)
+  void excludeFace(int faceIndex) {
     if (faceIndex < detectedFaces.length) {
       detectedFaces[faceIndex].personId = null;
       detectedFaces[faceIndex].userId = null;
       detectedFaces[faceIndex].personName = null;
+      detectedFaces[faceIndex].excluded = true;
       notifyListeners();
     }
   }
@@ -241,6 +242,14 @@ class CaptureProvider extends ChangeNotifier {
     final deviceModel = await _sensors.getDeviceModel();
     final timezone = await _sensors.getTimezone();
 
+    // Lens info — best effort from device defaults
+    // TODO: extract from EXIF when possible
+    final lensInfo = <String, dynamic>{
+      'focal_length_mm': 4.7, // typical smartphone
+      'aperture': 1.8,
+      'zoom_level': 1.0,
+    };
+
     return CaptureMetadata(
       orientation: orientation,
       timestamp: _sensors.getTimestamp(),
@@ -254,6 +263,7 @@ class CaptureProvider extends ChangeNotifier {
       people: detectedFaces,
       sceneHint: sceneHint.isNotEmpty ? sceneHint : null,
       tags: _parsedTags,
+      lensInfo: lensInfo,
       indoorPlaceId: selectedPlaceId,
       indoorDescription: indoorDescription.isNotEmpty ? indoorDescription : null,
       sessionId: _getSessionId(),

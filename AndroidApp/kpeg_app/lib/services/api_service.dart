@@ -75,10 +75,12 @@ class ApiService {
   // ══════════════════════════════════════
 
   /// POST /library/people — register person with selfies
+  /// POST /library/people — register with selfies + timestamps
   Future<Map<String, dynamic>> registerPerson({
     required String userId,
     required String name,
     required List<File> selfies,
+    List<int>? selfieTimestamps,
   }) async {
     if (useMock) {
       await Future.delayed(const Duration(seconds: 1));
@@ -89,6 +91,13 @@ class ApiService {
     final request = http.MultipartRequest('POST', uri);
     request.fields['user_id'] = userId;
     request.fields['name'] = name;
+
+    // Selfie timestamps as JSON array
+    final timestamps = selfieTimestamps ??
+        List.generate(selfies.length,
+            (_) => DateTime.now().millisecondsSinceEpoch ~/ 1000);
+    request.fields['selfie_timestamps'] = jsonEncode(timestamps);
+
     for (final selfie in selfies) {
       request.files.add(await http.MultipartFile.fromPath('selfies', selfie.path));
     }
@@ -162,12 +171,12 @@ class ApiService {
   // PLACES LIBRARY
   // ══════════════════════════════════════
 
+  /// POST /library/places — register with photos + per-photo metadata
   Future<Map<String, dynamic>> registerPlace({
     required String placeId,
     required String name,
-    String? building,
-    String? floor,
     required List<File> photos,
+    List<Map<String, dynamic>>? photosMetadata,
   }) async {
     if (useMock) {
       await Future.delayed(const Duration(seconds: 1));
@@ -178,8 +187,12 @@ class ApiService {
     final request = http.MultipartRequest('POST', uri);
     request.fields['place_id'] = placeId;
     request.fields['name'] = name;
-    if (building != null) request.fields['building'] = building;
-    if (floor != null) request.fields['floor'] = floor;
+
+    // Per-photo metadata (coordinates, angle, timestamp)
+    if (photosMetadata != null) {
+      request.fields['photos_metadata'] = jsonEncode(photosMetadata);
+    }
+
     for (final photo in photos) {
       request.files.add(await http.MultipartFile.fromPath('photos', photo.path));
     }

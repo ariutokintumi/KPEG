@@ -254,11 +254,9 @@ class _PlaceSelector extends StatelessWidget {
                     ),
                     title: Text(place.name,
                         style: const TextStyle(color: Colors.white)),
-                    subtitle: place.building != null || place.floor != null
+                    subtitle: place.description != null
                         ? Text(
-                            [place.floor, place.building]
-                                .where((s) => s != null && s.isNotEmpty)
-                                .join(', '),
+                            place.description!,
                             style: TextStyle(
                                 color: Colors.white.withValues(alpha: 0.4),
                                 fontSize: 12),

@@ -108,7 +108,7 @@ flutter clean && flutter pub get               # Clean rebuild
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/library/people` | POST | Register person (user_id, name, 2-5 selfies) |
+| `/library/people` | POST | Register person (user_id, name, 2-5 selfies, selfie_timestamps) |
 | `/library/people` | GET | List all people |
 | `/library/people/{user_id}` | DELETE | Delete person |
 
@@ -116,7 +116,7 @@ flutter clean && flutter pub get               # Clean rebuild
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/library/places` | POST | Register place (place_id, name, building, floor, 2-5 photos) |
+| `/library/places` | POST | Register place (place_id, name, 2-5 photos, photos_metadata with per-photo coordinates/angle) |
 | `/library/places` | GET | List all places |
 | `/library/places/{place_id}` | DELETE | Delete place |
 
@@ -140,13 +140,21 @@ Sent as the `metadata` field in `/encode`:
   "device_model": "Pixel 8 Pro",
   "is_outdoor": false,
 
+  "lens_info": {
+    "focal_length_mm": 6.9,
+    "aperture": 1.8,
+    "zoom_level": 1.0
+  },
+  "flash_used": false,
+
   "lat": 40.4168,
   "lng": -3.7038,
   "compass_heading": 225.0,
   "camera_tilt": -5.0,
 
   "people": [
-    {"user_id": "usr_maria_01", "bbox": [0.30, 0.10, 0.55, 0.90]}
+    {"user_id": "usr_maria_01", "bbox": [0.30, 0.10, 0.55, 0.90]},
+    {"user_id": "unknown_0", "bbox": [0.05, 0.20, 0.25, 0.75]}
   ],
 
   "scene_hint": "team lunch",
@@ -159,8 +167,10 @@ Sent as the `metadata` field in `/encode`:
 }
 ```
 
-- All null fields can be omitted
-- `bbox` normalized 0.0–1.0, top-left origin
+- `lens_info` and `flash_used` are **always included** (mandatory)
+- `people` includes ALL non-excluded faces; untagged faces appear as `"unknown_N"` (N = left-to-right index)
+- All other null fields can be omitted
+- `bbox` normalized 0.0-1.0, top-left origin
 - `session_id` auto-generated, reused within 30-min windows
 - `is_outdoor` defaults to `false` (hackathon = indoor focus)
 
@@ -172,7 +182,8 @@ Sent as the `metadata` field in `/encode`:
 3. Embedding compared against stored profiles via cosine similarity
 4. Auto-tags by confidence: >0.8 green, 0.5-0.8 yellow, <0.5 red ("Unknown")
 5. User can manually correct/assign via bottom sheet picker
-6. "Unknown" person always available as standard option
+6. Untagged faces appear in the metadata as `"unknown_N"` (N = left-to-right index, 0-based). Only faces explicitly excluded by the user are omitted from the people array.
+7. The people array in the metadata includes ALL non-excluded faces (both identified and unidentified)
 
 ### Hybrid Model
 - **Identification: ON-DEVICE** — face embeddings in local SQLite, no network calls
@@ -193,7 +204,7 @@ Sent as the `metadata` field in `/encode`:
 |-------|---------|-------------|
 | `people` | Person profiles cache | user_id, name, selfie_count, thumbnail_path |
 | `face_embeddings` | On-device face matching | person_id, embedding (BLOB, 4096 bytes) |
-| `places` | Indoor places cache | place_id, name, building, floor, lat, lng, thumbnail_path |
+| `places` | Indoor places cache | place_id, name, lat, lng, thumbnail_path |
 | `objects` | Indoor objects cache | object_id, name, category, thumbnail_path |
 | `kpeg_files` | Encoded .kpeg files | filename, file_path, file_size_bytes, thumbnail_path |
 
@@ -224,7 +235,7 @@ Sent as the `metadata` field in `/encode`:
 
 ### Library (3 sub-tabs)
 - **People**: face thumbnails, name, selfie count. Add with 2-5 selfies (auto face crop).
-- **Places**: photo thumbnails, name, building, floor. Add with 2-5 photos + location.
+- **Places**: photo thumbnails, name. Add with 2-5 photos + per-photo metadata (coordinates, camera angle).
 - **Objects**: photo thumbnails, name, category. Add with 1-3 photos + category picker.
 
 ## Critical Android Configuration

@@ -216,9 +216,7 @@ class _PlacesTab extends StatelessWidget {
     return _LibraryTile(
       leading: _thumbnailOrIcon(place.thumbnailPath, Icons.place_rounded),
       title: place.name,
-      subtitle: [place.floor, place.building]
-          .where((s) => s != null && s.isNotEmpty)
-          .join(', '),
+      subtitle: place.description ?? '',
       extra: '${place.photoCount} photos',
       onDelete: () => _confirmDelete(
           context, 'Delete ${place.name}?', () => provider.deletePlace(place.placeId)),

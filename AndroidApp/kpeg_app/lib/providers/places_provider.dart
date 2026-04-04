@@ -26,7 +26,8 @@ class PlacesProvider extends ChangeNotifier {
     try {
       final serverList = await _api.listPlaces();
       if (serverList.isNotEmpty) {
-        final serverPlaces = serverList.map((j) => Place.fromApiJson(j)).toList();
+        final serverPlaces =
+            serverList.map((j) => Place.fromApiJson(j)).toList();
         await _repo.syncFromServer(serverPlaces);
       }
       await loadPlaces();
@@ -35,27 +36,24 @@ class PlacesProvider extends ChangeNotifier {
     }
   }
 
-  /// Register place on server + cache locally
+  /// Register place with photos + per-photo metadata (coords, angle, timestamp)
   Future<Place> addPlace({
     required String name,
-    String? building,
-    String? floor,
     String? description,
     double? lat,
     double? lng,
     required List<File> photos,
+    List<PlacePhotoMeta>? photosMeta,
   }) async {
-    final placeId = Place.generatePlaceId(name, building: building, floor: floor);
+    final placeId = Place.generatePlaceId(name);
 
     await _api.registerPlace(
       placeId: placeId,
       name: name,
-      building: building,
-      floor: floor,
       photos: photos,
+      photosMetadata: photosMeta?.map((m) => m.toJson()).toList(),
     );
 
-    // Generate local thumbnail from first photo
     String? thumbnailPath;
     if (photos.isNotEmpty) {
       try {
@@ -66,8 +64,6 @@ class PlacesProvider extends ChangeNotifier {
     final place = Place(
       placeId: placeId,
       name: name,
-      building: building,
-      floor: floor,
       description: description,
       lat: lat,
       lng: lng,
@@ -89,7 +85,8 @@ class PlacesProvider extends ChangeNotifier {
     final appDir = await getApplicationDocumentsDirectory();
     final dir = Directory(p.join(appDir.path, 'library_thumbs'));
     if (!await dir.exists()) await dir.create(recursive: true);
-    final path = p.join(dir.path, '${prefix}_${DateTime.now().millisecondsSinceEpoch}.jpg');
+    final path = p.join(
+        dir.path, '${prefix}_${DateTime.now().millisecondsSinceEpoch}.jpg');
     await File(path).writeAsBytes(img.encodeJpg(resized, quality: 60));
     return path;
   }
@@ -102,7 +99,6 @@ class PlacesProvider extends ChangeNotifier {
     await loadPlaces();
   }
 
-  /// Find places near coordinates
   Future<List<Place>> findNearby(double lat, double lng) async {
     return _repo.findNearby(lat, lng);
   }

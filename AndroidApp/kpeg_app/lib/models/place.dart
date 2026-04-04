@@ -1,11 +1,7 @@
-import 'dart:io';
-
 class Place {
   final int? id;
-  final String placeId; // "place_hq_2f_livingroom"
+  final String placeId;
   final String name;
-  final String? building;
-  final String? floor;
   final String? description;
   final double? lat;
   final double? lng;
@@ -17,8 +13,6 @@ class Place {
     this.id,
     required this.placeId,
     required this.name,
-    this.building,
-    this.floor,
     this.description,
     this.lat,
     this.lng,
@@ -27,33 +21,19 @@ class Place {
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
-  static String generatePlaceId(String name, {String? building, String? floor}) {
-    final parts = ['place'];
-    if (building != null && building.isNotEmpty) {
-      parts.add(building.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), ''));
-    }
-    if (floor != null && floor.isNotEmpty) {
-      parts.add(floor.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), ''));
-    }
-    parts.add(name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_'));
-    return parts.join('_');
+  static String generatePlaceId(String name) {
+    final safeName = name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
+    final ts = DateTime.now().millisecondsSinceEpoch % 100000;
+    return 'place_${safeName}_$ts';
   }
 
-  /// Full display label
-  String get displayLabel {
-    final parts = <String>[name];
-    if (floor != null && floor!.isNotEmpty) parts.add(floor!);
-    if (building != null && building!.isNotEmpty) parts.add(building!);
-    return parts.join(', ');
-  }
+  String get displayLabel => name;
 
   Map<String, dynamic> toMap() {
     return {
       if (id != null && id! > 0) 'id': id,
       'place_id': placeId,
       'name': name,
-      'building': building,
-      'floor': floor,
       'description': description,
       'lat': lat,
       'lng': lng,
@@ -68,8 +48,6 @@ class Place {
       id: map['id'] as int,
       placeId: map['place_id'] as String,
       name: map['name'] as String,
-      building: map['building'] as String?,
-      floor: map['floor'] as String?,
       description: map['description'] as String?,
       lat: map['lat'] as double?,
       lng: map['lng'] as double?,
@@ -83,27 +61,32 @@ class Place {
     return Place(
       placeId: json['place_id'] as String,
       name: json['name'] as String,
-      building: json['building'] as String?,
-      floor: json['floor'] as String?,
     );
   }
 }
 
-/// Photo metadata for a place photo
-class PlacePhoto {
-  final File file;
+/// Metadata for each photo of a place (sent to server for reconstruction)
+class PlacePhotoMeta {
   final double? lat;
   final double? lng;
   final double? compassHeading;
   final double? cameraTilt;
   final int timestamp;
 
-  PlacePhoto({
-    required this.file,
+  PlacePhotoMeta({
     this.lat,
     this.lng,
     this.compassHeading,
     this.cameraTilt,
     required this.timestamp,
   });
+
+  Map<String, dynamic> toJson() {
+    final json = <String, dynamic>{'timestamp': timestamp};
+    if (lat != null) json['lat'] = lat;
+    if (lng != null) json['lng'] = lng;
+    if (compassHeading != null) json['compass_heading'] = compassHeading;
+    if (cameraTilt != null) json['camera_tilt'] = cameraTilt;
+    return json;
+  }
 }

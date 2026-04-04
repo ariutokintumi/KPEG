@@ -327,7 +327,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                   title: const Text('Remove tag',
                       style: TextStyle(color: Colors.redAccent)),
                   onTap: () {
-                    captureProvider.unassignFace(faceIndex);
+                    captureProvider.excludeFace(faceIndex);
                     Navigator.pop(ctx);
                   },
                 ),
