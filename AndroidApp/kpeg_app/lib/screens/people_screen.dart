@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../config/theme.dart';
 import '../providers/people_provider.dart';
+import '../services/face_recognition_service.dart';
 import '../widgets/kpeg_gradient_background.dart';
 import 'person_detail_screen.dart';
 
@@ -91,7 +92,9 @@ class _PeopleScreenState extends State<PeopleScreen> {
                       MaterialPageRoute(
                         builder: (_) => ChangeNotifierProvider.value(
                           value: provider,
-                          child: const PersonDetailScreen(),
+                          child: PersonDetailScreen(
+                            faceRecognition: context.read<FaceRecognitionService>(),
+                          ),
                         ),
                       ),
                     );

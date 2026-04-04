@@ -27,11 +27,12 @@ class FaceOverlay extends StatelessWidget {
         final face = faces[index];
         final bbox = face.normalizedBbox;
 
-        // Convertir bbox normalizado a coordenadas del display
         final left = bbox[0] * displaySize.width;
         final top = bbox[1] * displaySize.height;
         final right = bbox[2] * displaySize.width;
         final bottom = bbox[3] * displaySize.height;
+
+        final color = _tierColor(face.tier);
 
         return Positioned(
           left: left,
@@ -42,49 +43,77 @@ class FaceOverlay extends StatelessWidget {
             onTap: onFaceTap != null ? () => onFaceTap!(index) : null,
             child: Container(
               decoration: BoxDecoration(
-                border: Border.all(
-                  color: face.isTagged ? KpegTheme.accent : Colors.white70,
-                  width: 2,
-                ),
+                border: Border.all(color: color, width: 2),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: face.isTagged
-                  ? Align(
-                      alignment: Alignment.bottomCenter,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: KpegTheme.accent.withValues(alpha: 0.85),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          face.personName ?? '',
-                          style: const TextStyle(
-                            color: Colors.black,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
+              child: Stack(
+                children: [
+                  // Name label at bottom
+                  Align(
+                    alignment: Alignment.bottomCenter,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.85),
+                        borderRadius: BorderRadius.circular(4),
                       ),
-                    )
-                  : Align(
+                      child: Text(
+                        _labelText(face),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                  // Tap indicator for unmatched/uncertain faces
+                  if (face.tier == ConfidenceTier.unknown ||
+                      face.tier == ConfidenceTier.medium)
+                    Align(
                       alignment: Alignment.topRight,
                       child: Container(
                         padding: const EdgeInsets.all(2),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.7),
+                          color: color.withValues(alpha: 0.8),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.person_add,
-                            size: 12, color: Colors.black87),
+                        child: Icon(
+                          face.tier == ConfidenceTier.medium
+                              ? Icons.help_outline
+                              : Icons.person_add,
+                          size: 12,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
+                ],
+              ),
             ),
           ),
         );
       }),
     );
+  }
+
+  Color _tierColor(ConfidenceTier tier) {
+    switch (tier) {
+      case ConfidenceTier.high:
+        return KpegTheme.accent; // Green — confident auto-match
+      case ConfidenceTier.medium:
+        return Colors.amber; // Yellow — suggested match
+      case ConfidenceTier.low:
+        return Colors.redAccent; // Red — low confidence
+      case ConfidenceTier.unknown:
+        return Colors.redAccent; // Red — no match
+    }
+  }
+
+  String _labelText(DetectedFace face) {
+    if (!face.isTagged) return 'Unknown';
+    if (face.tier == ConfidenceTier.medium) return '${face.personName}?';
+    return face.personName ?? 'Unknown';
   }
 }

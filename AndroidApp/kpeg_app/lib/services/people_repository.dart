@@ -1,6 +1,21 @@
 import 'dart:io';
+import 'dart:typed_data';
 import '../models/person.dart';
 import 'database_service.dart';
+
+class FaceEmbeddingRecord {
+  final int? id;
+  final int personId;
+  final Uint8List embedding;
+  final String selfiePath;
+
+  FaceEmbeddingRecord({
+    this.id,
+    required this.personId,
+    required this.embedding,
+    required this.selfiePath,
+  });
+}
 
 class PeopleRepository {
   final DatabaseService _dbService;
@@ -20,10 +35,57 @@ class PeopleRepository {
     return Person.fromMap(maps.first);
   }
 
-  Future<Person> insert(Person person) async {
+  /// Insert person with face embeddings from selfies
+  Future<Person> insertWithEmbeddings(
+    Person person,
+    List<({Uint8List embedding, String selfiePath})> selfies,
+  ) async {
     final db = await _dbService.database;
-    final id = await db.insert('people', person.toMap());
-    return person.copyWith(id: id);
+
+    final personWithCount = Person(
+      name: person.name,
+      referencePhotoPath: selfies.isNotEmpty ? selfies.first.selfiePath : null,
+      selfieCount: selfies.length,
+    );
+
+    final id = await db.insert('people', personWithCount.toMap());
+
+    // Insert all embeddings
+    for (final selfie in selfies) {
+      await db.insert('face_embeddings', {
+        'person_id': id,
+        'embedding': selfie.embedding,
+        'selfie_path': selfie.selfiePath,
+      });
+    }
+
+    return personWithCount.copyWith(id: id);
+  }
+
+  /// Get all embeddings for face matching
+  Future<List<({int personId, String personName, Uint8List embedding})>> getAllEmbeddings() async {
+    final db = await _dbService.database;
+    final maps = await db.rawQuery('''
+      SELECT fe.embedding, fe.person_id, p.name
+      FROM face_embeddings fe
+      JOIN people p ON p.id = fe.person_id
+    ''');
+
+    return maps.map((m) => (
+      personId: m['person_id'] as int,
+      personName: m['name'] as String,
+      embedding: m['embedding'] as Uint8List,
+    )).toList();
+  }
+
+  /// Get selfie paths for a person
+  Future<List<String>> getSelfiePaths(int personId) async {
+    final db = await _dbService.database;
+    final maps = await db.query('face_embeddings',
+        columns: ['selfie_path'],
+        where: 'person_id = ?',
+        whereArgs: [personId]);
+    return maps.map((m) => m['selfie_path'] as String).toList();
   }
 
   Future<void> update(Person person) async {
@@ -34,12 +96,22 @@ class PeopleRepository {
 
   Future<void> delete(int id) async {
     final db = await _dbService.database;
-    // Borrar foto de referencia del disco
+
+    // Delete selfie files from disk
+    final selfiePaths = await getSelfiePaths(id);
+    for (final path in selfiePaths) {
+      final file = File(path);
+      if (await file.exists()) await file.delete();
+    }
+
+    // Delete reference photo
     final person = await getById(id);
     if (person?.referencePhotoPath != null) {
       final file = File(person!.referencePhotoPath!);
       if (await file.exists()) await file.delete();
     }
+
+    // DB cascade deletes face_embeddings
     await db.delete('people', where: 'id = ?', whereArgs: [id]);
   }
 }

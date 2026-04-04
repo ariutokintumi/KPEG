@@ -6,9 +6,10 @@ import 'providers/gallery_provider.dart';
 import 'providers/people_provider.dart';
 import 'services/api_service.dart';
 import 'services/database_service.dart';
+import 'services/face_detection_service.dart';
+import 'services/face_recognition_service.dart';
 import 'services/kpeg_repository.dart';
 import 'services/people_repository.dart';
-import 'services/face_detection_service.dart';
 import 'services/sensor_service.dart';
 import 'screens/capture_screen.dart';
 import 'screens/gallery_screen.dart';
@@ -29,15 +30,19 @@ class KpegApp extends StatelessWidget {
     final peopleRepo = PeopleRepository(dbService);
     final sensorService = SensorService();
     final faceDetectionService = FaceDetectionService();
+    final faceRecognitionService = FaceRecognitionService(peopleRepo);
 
     return MultiProvider(
       providers: [
+        // Make FaceRecognitionService available to all screens
+        Provider<FaceRecognitionService>.value(value: faceRecognitionService),
         ChangeNotifierProvider(
           create: (_) => CaptureProvider(
             api: apiService,
             kpegRepo: kpegRepo,
             sensors: sensorService,
             faceDetection: faceDetectionService,
+            faceRecognition: faceRecognitionService,
           ),
         ),
         ChangeNotifierProvider(
@@ -77,6 +82,15 @@ class _MainShellState extends State<MainShell> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    // Load face embeddings on app start
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<FaceRecognitionService>().loadEmbeddings();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: IndexedStack(
@@ -86,12 +100,8 @@ class _MainShellState extends State<MainShell> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
         onDestinationSelected: (index) {
-          // Refrescar datos al cambiar de tab
-          if (index == 1) {
-            context.read<GalleryProvider>().loadFiles();
-          } else if (index == 2) {
-            context.read<PeopleProvider>().loadPeople();
-          }
+          if (index == 1) context.read<GalleryProvider>().loadFiles();
+          if (index == 2) context.read<PeopleProvider>().loadPeople();
           setState(() => _currentIndex = index);
         },
         backgroundColor: KpegTheme.bgDark1,
@@ -99,20 +109,17 @@ class _MainShellState extends State<MainShell> {
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.camera_alt_outlined),
-            selectedIcon:
-                Icon(Icons.camera_alt_rounded, color: KpegTheme.accent),
+            selectedIcon: Icon(Icons.camera_alt_rounded, color: KpegTheme.accent),
             label: 'Capture',
           ),
           NavigationDestination(
             icon: Icon(Icons.photo_library_outlined),
-            selectedIcon:
-                Icon(Icons.photo_library_rounded, color: KpegTheme.accent),
+            selectedIcon: Icon(Icons.photo_library_rounded, color: KpegTheme.accent),
             label: 'Gallery',
           ),
           NavigationDestination(
             icon: Icon(Icons.people_outline),
-            selectedIcon:
-                Icon(Icons.people_rounded, color: KpegTheme.accent),
+            selectedIcon: Icon(Icons.people_rounded, color: KpegTheme.accent),
             label: 'People',
           ),
         ],

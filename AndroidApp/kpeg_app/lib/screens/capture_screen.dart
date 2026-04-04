@@ -103,6 +103,8 @@ class _CaptureScreenState extends State<CaptureScreen> {
                         onSceneHintChanged: provider.setSceneHint,
                         tagsText: provider.tagsText,
                         onTagsChanged: provider.setTagsText,
+                        indoorDescription: provider.indoorDescription,
+                        onIndoorDescriptionChanged: provider.setIndoorDescription,
                       ),
                     ],
                   ],
@@ -279,16 +281,6 @@ class _CaptureScreenState extends State<CaptureScreen> {
       BuildContext context, CaptureProvider captureProvider, int faceIndex) {
     final people = context.read<PeopleProvider>().people;
 
-    if (people.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Add people first in the "People" tab'),
-          backgroundColor: KpegTheme.accent,
-        ),
-      );
-      return;
-    }
-
     showModalBottomSheet(
       context: context,
       backgroundColor: KpegTheme.bgDark1,
@@ -310,10 +302,13 @@ class _CaptureScreenState extends State<CaptureScreen> {
                     fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 16),
+              // "Unknown" option — always first
+              _personOption(ctx, captureProvider, faceIndex, Person.unknown),
+              if (people.isNotEmpty) const Divider(color: Colors.white12),
               ...people.map((person) => _personOption(
                   ctx, captureProvider, faceIndex, person)),
               const SizedBox(height: 8),
-              // Opción de quitar etiqueta
+              // Remove tag option
               if (captureProvider.detectedFaces[faceIndex].isTagged)
                 ListTile(
                   leading: const Icon(Icons.close, color: Colors.redAccent),
@@ -336,13 +331,18 @@ class _CaptureScreenState extends State<CaptureScreen> {
     return ListTile(
       leading: CircleAvatar(
         radius: 20,
-        backgroundColor: KpegTheme.accent.withValues(alpha: 0.2),
+        backgroundColor: person.isUnknown
+            ? Colors.white.withValues(alpha: 0.1)
+            : KpegTheme.accent.withValues(alpha: 0.2),
         backgroundImage: person.referencePhotoPath != null
-            ? FileImage(
-                File(person.referencePhotoPath!))
+            ? FileImage(File(person.referencePhotoPath!))
             : null,
         child: person.referencePhotoPath == null
-            ? const Icon(Icons.person, color: KpegTheme.accent, size: 20)
+            ? Icon(
+                person.isUnknown ? Icons.help_outline : Icons.person,
+                color: person.isUnknown ? Colors.white54 : KpegTheme.accent,
+                size: 20,
+              )
             : null,
       ),
       title: Text(person.name,
@@ -352,7 +352,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
               color: Colors.white.withValues(alpha: 0.4), fontSize: 12)),
       onTap: () {
         provider.assignPersonToFace(
-            faceIndex, person.id!, person.userId, person.name);
+            faceIndex, person.id ?? -1, person.userId, person.name);
         Navigator.pop(ctx);
       },
     );

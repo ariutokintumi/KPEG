@@ -16,8 +16,9 @@ class DatabaseService {
 
     return openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -30,7 +31,18 @@ class DatabaseService {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         reference_photo_path TEXT,
+        selfie_count INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE face_embeddings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        person_id INTEGER NOT NULL,
+        embedding BLOB NOT NULL,
+        selfie_path TEXT NOT NULL,
+        FOREIGN KEY (person_id) REFERENCES people(id) ON DELETE CASCADE
       )
     ''');
 
@@ -45,5 +57,26 @@ class DatabaseService {
         scene_hint TEXT
       )
     ''');
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Add face_embeddings table
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS face_embeddings (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          person_id INTEGER NOT NULL,
+          embedding BLOB NOT NULL,
+          selfie_path TEXT NOT NULL,
+          FOREIGN KEY (person_id) REFERENCES people(id) ON DELETE CASCADE
+        )
+      ''');
+      // Add selfie_count column to people
+      try {
+        await db.execute('ALTER TABLE people ADD COLUMN selfie_count INTEGER NOT NULL DEFAULT 0');
+      } catch (_) {
+        // Column might already exist
+      }
+    }
   }
 }

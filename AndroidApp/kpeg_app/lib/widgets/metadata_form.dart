@@ -8,6 +8,8 @@ class MetadataForm extends StatelessWidget {
   final ValueChanged<String> onSceneHintChanged;
   final String tagsText;
   final ValueChanged<String> onTagsChanged;
+  final String indoorDescription;
+  final ValueChanged<String> onIndoorDescriptionChanged;
 
   const MetadataForm({
     super.key,
@@ -17,6 +19,8 @@ class MetadataForm extends StatelessWidget {
     required this.onSceneHintChanged,
     required this.tagsText,
     required this.onTagsChanged,
+    required this.indoorDescription,
+    required this.onIndoorDescriptionChanged,
   });
 
   @override
@@ -50,16 +54,37 @@ class MetadataForm extends StatelessWidget {
             ],
           ),
 
-          const SizedBox(height: 8),
+          // Indoor description (only when indoor)
+          if (!isOutdoor) ...[
+            const SizedBox(height: 4),
+            TextField(
+              onChanged: onIndoorDescriptionChanged,
+              style: const TextStyle(color: Colors.white, fontSize: 14),
+              decoration: InputDecoration(
+                hintText: 'Where are you? (e.g. "2nd floor, near the window")',
+                hintStyle: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.3), fontSize: 13),
+                prefixIcon: const Icon(Icons.location_on_rounded,
+                    color: KpegTheme.accent, size: 18),
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                border: InputBorder.none,
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 4),
 
           // Scene hint
           TextField(
             onChanged: onSceneHintChanged,
             style: const TextStyle(color: Colors.white, fontSize: 14),
             decoration: InputDecoration(
-              hintText: 'Describe the scene (e.g. "lunch at the beach")',
-              hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 13),
-              prefixIcon: const Icon(Icons.notes_rounded, color: KpegTheme.accent, size: 18),
+              hintText: 'What\'s happening? (e.g. "birthday party")',
+              hintStyle: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.3), fontSize: 13),
+              prefixIcon: const Icon(Icons.notes_rounded,
+                  color: KpegTheme.accent, size: 18),
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(vertical: 10),
               border: InputBorder.none,
@@ -71,9 +96,11 @@ class MetadataForm extends StatelessWidget {
             onChanged: onTagsChanged,
             style: const TextStyle(color: Colors.white, fontSize: 14),
             decoration: InputDecoration(
-              hintText: 'Comma-separated tags (e.g. "vacation, friends")',
-              hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 13),
-              prefixIcon: const Icon(Icons.label_rounded, color: KpegTheme.accent, size: 18),
+              hintText: 'Tags (e.g. "hackathon, team")',
+              hintStyle: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.3), fontSize: 13),
+              prefixIcon: const Icon(Icons.label_rounded,
+                  color: KpegTheme.accent, size: 18),
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(vertical: 10),
               border: InputBorder.none,

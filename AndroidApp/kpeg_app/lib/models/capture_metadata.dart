@@ -1,34 +1,36 @@
 import 'detected_face.dart';
 
 class CaptureMetadata {
-  // Requeridos
+  // Required
   final String orientation;
   final int timestamp;
   final String timezone;
   final String deviceModel;
   final bool isOutdoor;
 
-  // Ubicación (opcionales)
+  // Location (optional)
   final double? lat;
   final double? lng;
-  final double? altitude;
   final double? compassHeading;
   final double? cameraTilt;
 
-  // Personas detectadas
+  // People detected
   final List<DetectedFace> people;
 
-  // Contexto del usuario (opcionales)
+  // User context (optional)
   final String? sceneHint;
   final List<String> tags;
 
-  // Cámara (opcionales)
+  // Camera (optional)
   final Map<String, dynamic>? lensInfo;
   final bool? flashUsed;
 
-  // Interior (solo si !isOutdoor)
+  // Indoor (only if !isOutdoor)
   final String? indoorPlaceId;
   final String? indoorDescription;
+
+  // Session
+  final String? sessionId;
 
   CaptureMetadata({
     required this.orientation,
@@ -38,7 +40,6 @@ class CaptureMetadata {
     required this.isOutdoor,
     this.lat,
     this.lng,
-    this.altitude,
     this.compassHeading,
     this.cameraTilt,
     this.people = const [],
@@ -48,10 +49,10 @@ class CaptureMetadata {
     this.flashUsed,
     this.indoorPlaceId,
     this.indoorDescription,
+    this.sessionId,
   });
 
-  /// Genera el JSON que espera POST /encode.
-  /// Omite campos null automáticamente.
+  /// Build JSON for POST /encode. Omits null fields.
   Map<String, dynamic> toJson() {
     final json = <String, dynamic>{
       'orientation': orientation,
@@ -63,7 +64,6 @@ class CaptureMetadata {
 
     if (lat != null) json['lat'] = lat;
     if (lng != null) json['lng'] = lng;
-    if (altitude != null) json['altitude'] = altitude;
     if (compassHeading != null) json['compass_heading'] = compassHeading;
     if (cameraTilt != null) json['camera_tilt'] = cameraTilt;
 
@@ -82,8 +82,12 @@ class CaptureMetadata {
 
     if (!isOutdoor) {
       if (indoorPlaceId != null) json['indoor_place_id'] = indoorPlaceId;
-      if (indoorDescription != null) json['indoor_description'] = indoorDescription;
+      if (indoorDescription != null && indoorDescription!.isNotEmpty) {
+        json['indoor_description'] = indoorDescription;
+      }
     }
+
+    if (sessionId != null) json['session_id'] = sessionId;
 
     return json;
   }

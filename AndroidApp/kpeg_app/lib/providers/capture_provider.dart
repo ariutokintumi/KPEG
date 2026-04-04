@@ -7,6 +7,7 @@ import '../models/detected_face.dart';
 import '../models/kpeg_file.dart';
 import '../services/api_service.dart';
 import '../services/face_detection_service.dart';
+import '../services/face_recognition_service.dart';
 import '../services/kpeg_repository.dart';
 import '../services/sensor_service.dart';
 
@@ -17,29 +18,37 @@ class CaptureProvider extends ChangeNotifier {
   final KpegRepository _kpegRepo;
   final SensorService _sensors;
   final FaceDetectionService _faceDetection;
+  final FaceRecognitionService _faceRecognition;
 
   CaptureProvider({
     required ApiService api,
     required KpegRepository kpegRepo,
     required SensorService sensors,
     required FaceDetectionService faceDetection,
+    required FaceRecognitionService faceRecognition,
   })  : _api = api,
         _kpegRepo = kpegRepo,
         _sensors = sensors,
-        _faceDetection = faceDetection;
+        _faceDetection = faceDetection,
+        _faceRecognition = faceRecognition;
 
   CaptureState state = CaptureState.idle;
   File? photo;
   int? photoWidth;
   int? photoHeight;
   List<DetectedFace> detectedFaces = [];
-  bool isOutdoor = true;
+  bool isOutdoor = false; // Default indoor for hackathon
   String sceneHint = '';
   String tagsText = '';
+  String indoorDescription = '';
   String? errorMessage;
   KpegFile? lastSavedFile;
   SensorSnapshot? _sensorSnapshot;
   GpsData? _gpsData;
+
+  // Session management
+  String? _sessionId;
+  DateTime? _lastPhotoTime;
 
   /// Iniciar sensores (llamar al inicio)
   void startSensors() => _sensors.startListening();
@@ -73,15 +82,41 @@ class CaptureProvider extends ChangeNotifier {
     detectedFaces = [];
     notifyListeners();
 
-    // Detectar caras automáticamente
+    // Detect faces with ML Kit
     try {
       detectedFaces = await _faceDetection.detectFaces(
         photo!,
         imageWidth: photoWidth!,
         imageHeight: photoHeight!,
       );
+
+      // Auto-identify each detected face against the local library
+      for (final face in detectedFaces) {
+        try {
+          final embedding = await _faceRecognition.extractEmbedding(
+            photo!,
+            left: face.boundingBox.left,
+            top: face.boundingBox.top,
+            right: face.boundingBox.right,
+            bottom: face.boundingBox.bottom,
+            imageWidth: photoWidth!,
+            imageHeight: photoHeight!,
+          );
+          face.embedding = embedding;
+
+          final match = _faceRecognition.findMatch(embedding);
+          if (match.person != null) {
+            face.personId = match.person!.id;
+            face.userId = match.person!.userId;
+            face.personName = match.person!.name;
+            face.confidence = match.confidence;
+          }
+        } catch (_) {
+          // Face embedding extraction failed — leave as untagged
+        }
+      }
     } catch (_) {
-      // Si falla la detección, seguimos sin caras — no es crítico
+      // Face detection failed — continue without faces
     }
 
     state = CaptureState.captured;
@@ -94,9 +129,11 @@ class CaptureProvider extends ChangeNotifier {
   }
 
   /// Asignar una persona a una cara detectada
+  /// Assign a person to a detected face (manual = confidence 1.0)
   void assignPersonToFace(int faceIndex, int personId, String userId, String personName) {
     if (faceIndex < detectedFaces.length) {
       detectedFaces[faceIndex].personId = personId;
+      detectedFaces[faceIndex].confidence = 1.0; // Manual assignment = full confidence
       detectedFaces[faceIndex].userId = userId;
       detectedFaces[faceIndex].personName = personName;
       notifyListeners();
@@ -119,6 +156,25 @@ class CaptureProvider extends ChangeNotifier {
 
   void setTagsText(String text) {
     tagsText = text;
+  }
+
+  void setIndoorDescription(String desc) {
+    indoorDescription = desc;
+  }
+
+  /// Generate or reuse session ID (30-min windows)
+  String _getSessionId() {
+    final now = DateTime.now();
+    if (_sessionId != null &&
+        _lastPhotoTime != null &&
+        now.difference(_lastPhotoTime!).inMinutes < 30) {
+      return _sessionId!;
+    }
+    // New session
+    _sessionId = 'sess_'
+        '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}'
+        '_${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
+    return _sessionId!;
   }
 
   List<String> get _parsedTags {
@@ -147,6 +203,7 @@ class CaptureProvider extends ChangeNotifier {
         originalPhotoPath: photo!.path,
       );
 
+      _lastPhotoTime = DateTime.now();
       state = CaptureState.success;
       notifyListeners();
     } catch (e) {
@@ -165,6 +222,7 @@ class CaptureProvider extends ChangeNotifier {
     detectedFaces = [];
     sceneHint = '';
     tagsText = '';
+    indoorDescription = '';
     errorMessage = null;
     lastSavedFile = null;
     _sensorSnapshot = null;
@@ -185,12 +243,13 @@ class CaptureProvider extends ChangeNotifier {
       isOutdoor: isOutdoor,
       lat: _gpsData?.lat,
       lng: _gpsData?.lng,
-      altitude: _gpsData?.altitude,
       compassHeading: _sensorSnapshot?.compassHeading,
       cameraTilt: _sensorSnapshot?.cameraTilt,
       people: detectedFaces,
       sceneHint: sceneHint.isNotEmpty ? sceneHint : null,
       tags: _parsedTags,
+      indoorDescription: indoorDescription.isNotEmpty ? indoorDescription : null,
+      sessionId: _getSessionId(),
     );
   }
 }
