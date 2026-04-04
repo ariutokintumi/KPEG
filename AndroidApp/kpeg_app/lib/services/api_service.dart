@@ -28,7 +28,7 @@ class ApiService {
 
     final response = await request.send().timeout(
       const Duration(seconds: 60),
-      onTimeout: () => throw Exception('Timeout codificando imagen'),
+      onTimeout: () => throw Exception('Timeout encoding image'),
     );
 
     if (response.statusCode == 200) {
@@ -37,7 +37,7 @@ class ApiService {
 
     final body = await response.stream.bytesToString();
     final error = jsonDecode(body);
-    throw Exception(error['error'] ?? 'Error desconocido (${ response.statusCode})');
+    throw Exception(error['error'] ?? 'Unknown error (${response.statusCode})');
   }
 
   /// POST /decode — envía .kpeg binario, recibe JPEG reconstruido
@@ -54,7 +54,7 @@ class ApiService {
 
     final response = await request.send().timeout(
       const Duration(seconds: 120),
-      onTimeout: () => throw Exception('Timeout decodificando (la IA puede tardar 15s+)'),
+      onTimeout: () => throw Exception('Decode timeout (AI reconstruction may take 15s+)'),
     );
 
     if (response.statusCode == 200) {
@@ -62,7 +62,7 @@ class ApiService {
     }
 
     final body = await response.stream.bytesToString();
-    throw Exception('Error decodificando: $body');
+    throw Exception('Decode error: $body');
   }
 
   /// GET /health — verifica si el backend está disponible

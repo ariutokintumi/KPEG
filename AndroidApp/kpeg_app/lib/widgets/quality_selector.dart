@@ -12,9 +12,9 @@ class QualitySelector extends StatelessWidget {
   });
 
   static const _options = [
-    ('fast', 'Rápido', Icons.bolt_rounded),
-    ('balanced', 'Balanceado', Icons.tune_rounded),
-    ('high', 'Alta calidad', Icons.auto_awesome_rounded),
+    ('fast', 'Fast', Icons.bolt_rounded),
+    ('balanced', 'Balanced', Icons.tune_rounded),
+    ('high', 'High quality', Icons.auto_awesome_rounded),
   ];
 
   @override

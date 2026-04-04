@@ -38,7 +38,7 @@ class MetadataForm extends StatelessWidget {
                   color: KpegTheme.accent, size: 20),
               const SizedBox(width: 8),
               Text(
-                isOutdoor ? 'Exterior' : 'Interior',
+                isOutdoor ? 'Outdoor' : 'Indoor',
                 style: const TextStyle(color: Colors.white70, fontSize: 14),
               ),
               const Spacer(),
@@ -57,7 +57,7 @@ class MetadataForm extends StatelessWidget {
             onChanged: onSceneHintChanged,
             style: const TextStyle(color: Colors.white, fontSize: 14),
             decoration: InputDecoration(
-              hintText: 'Describe la escena (ej: "almuerzo en la playa")',
+              hintText: 'Describe the scene (e.g. "lunch at the beach")',
               hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 13),
               prefixIcon: const Icon(Icons.notes_rounded, color: KpegTheme.accent, size: 18),
               isDense: true,
@@ -71,7 +71,7 @@ class MetadataForm extends StatelessWidget {
             onChanged: onTagsChanged,
             style: const TextStyle(color: Colors.white, fontSize: 14),
             decoration: InputDecoration(
-              hintText: 'Tags separados por coma (ej: "vacaciones, amigos")',
+              hintText: 'Comma-separated tags (e.g. "vacation, friends")',
               hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 13),
               prefixIcon: const Icon(Icons.label_rounded, color: KpegTheme.accent, size: 18),
               isDense: true,

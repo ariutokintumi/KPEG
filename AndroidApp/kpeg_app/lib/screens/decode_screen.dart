@@ -92,10 +92,10 @@ class DecodeScreen extends StatelessWidget {
                             : const Icon(Icons.auto_awesome_rounded),
                         label: Text(
                           provider.decodeState == DecodeState.decoding
-                              ? 'Reconstruyendo...'
+                              ? 'Reconstructing...'
                               : provider.decodeState == DecodeState.success
-                                  ? 'Reconstruir de nuevo'
-                                  : 'Reconstruir con IA',
+                                  ? 'Reconstruct again'
+                                  : 'Reconstruct with AI',
                           style: const TextStyle(
                               fontSize: 16, fontWeight: FontWeight.w600),
                         ),
@@ -139,7 +139,7 @@ class DecodeScreen extends StatelessWidget {
               size: 64, color: KpegTheme.accent.withValues(alpha: 0.3)),
           const SizedBox(height: 16),
           Text(
-            'Selecciona la calidad y pulsa\n"Reconstruir con IA"',
+            'Select quality and tap\n"Reconstruct with AI"',
             textAlign: TextAlign.center,
             style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.3), fontSize: 14),
@@ -167,12 +167,12 @@ class DecodeScreen extends StatelessWidget {
           CircularProgressIndicator(color: KpegTheme.accent),
           SizedBox(height: 20),
           Text(
-            'La IA está reconstruyendo tu imagen...',
+            'AI is reconstructing your image...',
             style: TextStyle(color: Colors.white70, fontSize: 15),
           ),
           SizedBox(height: 8),
           Text(
-            'Esto puede tardar 5-15 segundos',
+            'This may take 5-15 seconds',
             style: TextStyle(color: Colors.white38, fontSize: 13),
           ),
         ],
@@ -200,7 +200,7 @@ class DecodeScreen extends StatelessWidget {
           const Icon(Icons.error_outline, size: 48, color: Colors.redAccent),
           const SizedBox(height: 16),
           Text(
-            provider.errorMessage ?? 'Error desconocido',
+            provider.errorMessage ?? 'Unknown error',
             style: const TextStyle(color: Colors.redAccent, fontSize: 14),
             textAlign: TextAlign.center,
           ),

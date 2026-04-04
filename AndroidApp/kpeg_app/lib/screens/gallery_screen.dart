@@ -51,7 +51,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Galería',
+                    'Gallery',
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w800,
@@ -61,7 +61,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${provider.files.length} archivo${provider.files.length == 1 ? '' : 's'} .kpeg',
+                    '${provider.files.length} .kpeg file${provider.files.length == 1 ? '' : 's'}',
                     style: const TextStyle(
                       fontSize: 12,
                       color: KpegTheme.accent,
@@ -86,7 +86,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                 child: OutlinedButton.icon(
                   onPressed: provider.loadFiles,
                   icon: const Icon(Icons.refresh_rounded, size: 18),
-                  label: const Text('Actualizar'),
+                  label: const Text('Refresh'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: KpegTheme.accent,
                     side: BorderSide(
@@ -112,7 +112,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
               size: 56, color: KpegTheme.accent.withValues(alpha: 0.3)),
           const SizedBox(height: 12),
           Text(
-            'Aún no hay archivos .kpeg\nCaptura una foto para empezar',
+            'No .kpeg files yet\nCapture a photo to get started',
             textAlign: TextAlign.center,
             style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.3), fontSize: 14),
@@ -146,15 +146,15 @@ class _GalleryScreenState extends State<GalleryScreen> {
             final confirm = await showDialog<bool>(
               context: context,
               builder: (ctx) => AlertDialog(
-                title: const Text('Eliminar'),
-                content: Text('¿Eliminar ${file.filename}?'),
+                title: const Text('Delete'),
+                content: Text('Delete ${file.filename}?'),
                 actions: [
                   TextButton(
                       onPressed: () => Navigator.pop(ctx, false),
-                      child: const Text('Cancelar')),
+                      child: const Text('Cancel')),
                   TextButton(
                       onPressed: () => Navigator.pop(ctx, true),
-                      child: const Text('Eliminar',
+                      child: const Text('Delete',
                           style: TextStyle(color: Colors.redAccent))),
                 ],
               ),

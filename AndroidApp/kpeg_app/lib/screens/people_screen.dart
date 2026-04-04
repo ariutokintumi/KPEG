@@ -50,7 +50,7 @@ class _PeopleScreenState extends State<PeopleScreen> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Personas',
+                    'People',
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w800,
@@ -60,7 +60,7 @@ class _PeopleScreenState extends State<PeopleScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${provider.people.length} perfil${provider.people.length == 1 ? '' : 'es'}',
+                    '${provider.people.length} profile${provider.people.length == 1 ? '' : 's'}',
                     style: const TextStyle(
                       fontSize: 12,
                       color: KpegTheme.accent,
@@ -100,7 +100,7 @@ class _PeopleScreenState extends State<PeopleScreen> {
                   },
                   icon: const Icon(Icons.person_add_rounded),
                   label: const Text(
-                    'Añadir persona',
+                    'Add person',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
                   style: ElevatedButton.styleFrom(
@@ -127,7 +127,7 @@ class _PeopleScreenState extends State<PeopleScreen> {
               size: 56, color: KpegTheme.accent.withValues(alpha: 0.3)),
           const SizedBox(height: 12),
           Text(
-            'Añade personas para\nidentificarlas en tus fotos',
+            'Add people to\nidentify them in your photos',
             textAlign: TextAlign.center,
             style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.3), fontSize: 14),
@@ -193,15 +193,15 @@ class _PeopleScreenState extends State<PeopleScreen> {
                   final confirm = await showDialog<bool>(
                     context: context,
                     builder: (ctx) => AlertDialog(
-                      title: const Text('Eliminar persona'),
-                      content: Text('¿Eliminar a ${person.name}?'),
+                      title: const Text('Delete person'),
+                      content: Text('Delete ${person.name}?'),
                       actions: [
                         TextButton(
                             onPressed: () => Navigator.pop(ctx, false),
-                            child: const Text('Cancelar')),
+                            child: const Text('Cancel')),
                         TextButton(
                             onPressed: () => Navigator.pop(ctx, true),
-                            child: const Text('Eliminar',
+                            child: const Text('Delete',
                                 style: TextStyle(color: Colors.redAccent))),
                       ],
                     ),

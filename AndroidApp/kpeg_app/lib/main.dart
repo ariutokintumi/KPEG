@@ -101,19 +101,19 @@ class _MainShellState extends State<MainShell> {
             icon: Icon(Icons.camera_alt_outlined),
             selectedIcon:
                 Icon(Icons.camera_alt_rounded, color: KpegTheme.accent),
-            label: 'Captura',
+            label: 'Capture',
           ),
           NavigationDestination(
             icon: Icon(Icons.photo_library_outlined),
             selectedIcon:
                 Icon(Icons.photo_library_rounded, color: KpegTheme.accent),
-            label: 'Galería',
+            label: 'Gallery',
           ),
           NavigationDestination(
             icon: Icon(Icons.people_outline),
             selectedIcon:
                 Icon(Icons.people_rounded, color: KpegTheme.accent),
-            label: 'Personas',
+            label: 'People',
           ),
         ],
       ),

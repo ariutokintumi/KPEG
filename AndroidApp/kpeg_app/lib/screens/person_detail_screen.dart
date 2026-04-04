@@ -79,7 +79,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                           color: Colors.white),
                     ),
                     const Text(
-                      'Nueva persona',
+                      'New person',
                       style: TextStyle(
                           color: Colors.white,
                           fontSize: 18,
@@ -126,7 +126,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                                             .withValues(alpha: 0.4)),
                                     const SizedBox(height: 8),
                                     Text(
-                                      'Toca para\nhacer foto',
+                                      'Tap to\ntake photo',
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
                                           color: Colors.white
@@ -145,7 +145,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                       TextButton.icon(
                         onPressed: _pickFromGallery,
                         icon: const Icon(Icons.photo_library_outlined, size: 16),
-                        label: const Text('O elegir de la galería', style: TextStyle(fontSize: 13)),
+                        label: const Text('Or pick from gallery', style: TextStyle(fontSize: 13)),
                         style: TextButton.styleFrom(
                           foregroundColor: KpegTheme.accent.withValues(alpha: 0.7),
                         ),
@@ -161,7 +161,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                             const TextStyle(color: Colors.white, fontSize: 18),
                         textAlign: TextAlign.center,
                         decoration: InputDecoration(
-                          hintText: 'Nombre de la persona',
+                          hintText: 'Person\'s name',
                           hintStyle: TextStyle(
                               color: Colors.white.withValues(alpha: 0.3)),
                           enabledBorder: UnderlineInputBorder(
@@ -197,7 +197,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                           )
                         : const Icon(Icons.save_rounded),
                     label: Text(
-                      _saving ? 'Guardando...' : 'Guardar persona',
+                      _saving ? 'Saving...' : 'Save person',
                       style: const TextStyle(
                           fontSize: 16, fontWeight: FontWeight.w600),
                     ),

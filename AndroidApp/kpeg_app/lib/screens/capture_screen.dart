@@ -145,13 +145,13 @@ class _CaptureScreenState extends State<CaptureScreen> {
           const Icon(Icons.face_rounded, color: KpegTheme.accent, size: 16),
           const SizedBox(width: 6),
           Text(
-            '$total cara${total == 1 ? '' : 's'} detectada${total == 1 ? '' : 's'}'
-            '${tagged > 0 ? ' ($tagged etiquetada${tagged == 1 ? '' : 's'})' : ''}',
+            '$total face${total == 1 ? '' : 's'} detected'
+            '${tagged > 0 ? ' ($tagged tagged)' : ''}',
             style: const TextStyle(color: KpegTheme.accent, fontSize: 12),
           ),
           const SizedBox(width: 6),
           Text(
-            '— toca para etiquetar',
+            '— tap to tag',
             style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.4), fontSize: 11),
           ),
@@ -176,7 +176,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                 size: 56, color: KpegTheme.accent.withValues(alpha: 0.3)),
             const SizedBox(height: 12),
             Text(
-              'Pulsa el botón para\nhacer una foto',
+              'Tap the button to\ntake a photo',
               textAlign: TextAlign.center,
               style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.3), fontSize: 14),
@@ -231,7 +231,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                       children: [
                         CircularProgressIndicator(color: KpegTheme.accent),
                         SizedBox(height: 12),
-                        Text('Detectando caras...',
+                        Text('Detecting faces...',
                             style:
                                 TextStyle(color: Colors.white, fontSize: 14)),
                       ],
@@ -261,7 +261,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                       children: [
                         CircularProgressIndicator(color: KpegTheme.accent),
                         SizedBox(height: 12),
-                        Text('Codificando...',
+                        Text('Encoding...',
                             style:
                                 TextStyle(color: Colors.white, fontSize: 14)),
                       ],
@@ -282,7 +282,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
     if (people.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Añade personas primero en la pestaña "Personas"'),
+          content: Text('Add people first in the "People" tab'),
           backgroundColor: KpegTheme.accent,
         ),
       );
@@ -303,7 +303,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                '¿Quién es?',
+                'Who is this?',
                 style: TextStyle(
                     color: Colors.white,
                     fontSize: 18,
@@ -317,7 +317,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
               if (captureProvider.detectedFaces[faceIndex].isTagged)
                 ListTile(
                   leading: const Icon(Icons.close, color: Colors.redAccent),
-                  title: const Text('Quitar etiqueta',
+                  title: const Text('Remove tag',
                       style: TextStyle(color: Colors.redAccent)),
                   onTap: () {
                     captureProvider.unassignFace(faceIndex);
@@ -393,7 +393,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
         border: Border.all(color: Colors.redAccent.withValues(alpha: 0.5)),
       ),
       child: Text(
-        provider.errorMessage ?? 'Error desconocido',
+        provider.errorMessage ?? 'Unknown error',
         style: const TextStyle(color: Colors.redAccent, fontSize: 13),
         textAlign: TextAlign.center,
       ),
@@ -420,7 +420,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                   },
             icon: const Icon(Icons.camera_alt_rounded),
             label: Text(
-              provider.photo == null ? 'Hacer foto' : 'Nueva foto',
+              provider.photo == null ? 'Take photo' : 'New photo',
               style:
                   const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
@@ -443,7 +443,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
               onPressed: isBusy ? null : provider.encodeAndSave,
               icon: const Icon(Icons.compress_rounded),
               label: const Text(
-                'Codificar .kpeg',
+                'Encode .kpeg',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
               style: OutlinedButton.styleFrom(
