@@ -82,9 +82,13 @@ def encode():
 @app.route('/decode', methods=['POST'])
 def decode():
     """
-    MOCKUP: reads the .kpeg, extracts the image_id, returns the original photo.
+    MOCKUP: reads the .kpeg, returns the original photo with visual changes
+    (color shift + "Generated with AI" watermark) so it looks like a reconstruction.
     Replace this with the real AI reconstruction when ready.
     """
+    from PIL import Image, ImageDraw, ImageFont, ImageEnhance, ImageFilter
+    import io
+
     if 'kpeg_file' not in request.files:
         return jsonify({'error': 'No kpeg_file provided'}), 422
 
@@ -105,11 +109,49 @@ def decode():
     if not os.path.exists(original_path):
         return jsonify({'error': f'Original image not found: {image_id}'}), 422
 
-    # Return the original image as "reconstructed" (mockup)
-    with open(original_path, 'rb') as f:
-        image_bytes = f.read()
+    # Apply visual modifications to simulate AI reconstruction
+    img = Image.open(original_path)
 
-    print(f'🖼️  Decoded: {image_id} (quality={quality}) — MOCKUP')
+    # 1. Slight blur (simulates AI smoothing)
+    img = img.filter(ImageFilter.GaussianBlur(radius=0.8))
+
+    # 2. Boost saturation (AI-generated images tend to be more vivid)
+    enhancer = ImageEnhance.Color(img)
+    img = enhancer.enhance(1.3)
+
+    # 3. Slight warm tint (shift towards AI-generated look)
+    r, g, b = img.split()
+    r = r.point(lambda x: min(255, int(x * 1.05)))
+    b = b.point(lambda x: int(x * 0.92))
+    img = Image.merge('RGB', (r, g, b))
+
+    # 4. Add "Generated with AI" watermark
+    draw = ImageDraw.Draw(img)
+    text = "Generated with AI"
+    # Calculate font size relative to image (roughly 3% of width)
+    font_size = max(16, img.width // 30)
+    try:
+        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
+    except (OSError, IOError):
+        font = ImageFont.load_default()
+
+    bbox = draw.textbbox((0, 0), text, font=font)
+    text_w = bbox[2] - bbox[0]
+    text_h = bbox[3] - bbox[1]
+    x = img.width - text_w - 20
+    y = img.height - text_h - 20
+
+    # Semi-transparent background behind text
+    draw.rectangle([x - 10, y - 6, x + text_w + 10, y + text_h + 6],
+                   fill=(0, 0, 0, 180))
+    draw.text((x, y), text, fill=(0, 200, 150), font=font)
+
+    # Encode to JPEG
+    output = io.BytesIO()
+    img.save(output, format='JPEG', quality=85)
+    image_bytes = output.getvalue()
+
+    print(f'🖼️  Decoded: {image_id} (quality={quality}) — MOCKUP with AI effect')
     return image_bytes, 200, {'Content-Type': 'image/jpeg'}
 
 

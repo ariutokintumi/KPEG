@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **KPEG** is a ultra-compressed image format (~1-2KB) developed at the ETHGlobal Cannes Hackathon. A photo is encoded into a tiny `.kpeg` file containing a color bitmap, metadata, and an AI scene description. An AI later reconstructs a visually similar photo from that data. The pitch: "Your entire life's photo library fitting on a floppy disk."
 
-**Team:** 2 people. This repo covers the **App** + **Library API backend** (Python/Flask). A teammate implements the `/encode` and `/decode` AI endpoints.
+**Team:** 2 people. This repo covers the **App** + **full backend** (Python/Flask). A teammate will replace the `/encode` and `/decode` mockups with real AI processing.
 
 **Privacy-first:** Face detection AND identification happen entirely on-device. No biometric data leaves the phone. Person selfies are sent to the server only for AI image reconstruction purposes.
 
@@ -27,15 +27,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 │  - Gallery + decode viewer           │
 │                                      │
 │                                      │   ┌──────────────────────┐
-│  Registration (selfies/photos) ─────────▶│  Backend API         │
-│                                      │◀──│  (teammate's server)  │
-│  Encode/decode ─────────────────────────▶│  POST /encode        │
-│                                      │   │  POST /decode        │
+│  Registration (selfies/photos) ─────────▶│  Backend (API/)       │
+│                                      │◀──│  Python/Flask+SQLite  │
+│  Encode/decode ─────────────────────────▶│  /health             │
 │                                      │   │  /library/people/*   │
 │                                      │   │  /library/places/*   │
 │                                      │   │  /library/objects/*  │
-│                                      │   │  GET  /health        │
+│                                      │   │  /encode  (mockup*)  │
+│                                      │   │  /decode  (mockup*)  │
 │                                      │   └──────────────────────┘
+│  * mockup: saves original, returns it as "reconstruction"
 └──────────────────────────────────────┘
 ```
 
@@ -79,13 +80,14 @@ KPEG/
 │   ├── pubspec.yaml
 │   └── android/
 ├── API/                       # Python backend (Flask + SQLite)
-│   ├── api.py                 # Flask app — /health + /library/* + /encode,/decode stubs
-│   ├── database.py            # SQLite schema + CRUD helpers
+│   ├── api.py                 # Flask app — all endpoints (library CRUD + encode/decode mockups)
+│   ├── database.py            # SQLite schema (kpeg_library.db) + CRUD helpers
 │   ├── requirements.txt       # flask>=3.0.0
 │   └── library/               # Photo storage (gitignored)
 │       ├── people/{user_id}/  # Face crop selfies
 │       ├── places/{place_id}/ # Place reference photos
-│       └── objects/{object_id}/ # Object reference photos
+│       ├── objects/{object_id}/ # Object reference photos
+│       └── _originals/        # Original photos for encode/decode mockup
 ├── CONTEXT.md                 # Historical dev notes
 ├── ClaudeInfo/                # Project specs (local only, gitignored)
 └── CLAUDE.md
@@ -110,13 +112,13 @@ flutter clean && flutter pub get               # Clean rebuild
 
 ## API Contracts
 
-### Core Pipeline (teammate's backend)
+### Core Pipeline (mockup — teammate will replace with AI)
 
-| Endpoint | Method | Request | Response |
-|----------|--------|---------|----------|
-| `/encode` | POST | multipart: `image` (JPEG) + `metadata` (JSON) | `.kpeg` binary (≤2KB) |
-| `/decode` | POST | multipart: `kpeg_file` + `quality` | Reconstructed JPEG |
-| `/health` | GET | — | `{"status": "ok"}` |
+| Endpoint | Method | Request | Response | Status |
+|----------|--------|---------|----------|--------|
+| `/encode` | POST | multipart: `image` (JPEG) + `metadata` (JSON) | `.kpeg` binary (≤2KB) | **Mockup** — saves original, returns header+metadata |
+| `/decode` | POST | multipart: `kpeg_file` + `quality` | Reconstructed JPEG | **Mockup** — returns the saved original |
+| `/health` | GET | — | `{"status": "ok"}` | Implemented |
 
 ### People Library
 
@@ -269,4 +271,21 @@ The `AndroidManifest.xml` must include:
 - **Decode is slow:** 5-15 seconds for AI reconstruction — show loading state
 - **Sensor timing:** Compass/tilt captured AT photo moment, not after
 - **DB migrations:** Version bumps drop all tables — uninstall app on device when schema changes
-- **Mock mode:** `AppConfig.useMock = true` for testing without backend. Set to `false` + update `apiBaseUrl` when backend is ready.
+- **App connects to real API** — `AppConfig.useMock = false`. Backend must be running.
+- **API URL config:** `AppConfig.apiBaseUrl` — use `10.0.2.2:8000` for emulator, PC's WiFi IP for physical device.
+- **Encode/decode are mockups** — teammate will replace `api.py` encode/decode with real AI processing. The mockup saves the original, and returns it with visual effects (blur, warm tint, boosted saturation, "Generated with AI" watermark) to simulate AI reconstruction.
+
+## Backend (API/)
+
+**Stack:** Python + Flask + SQLite (`kpeg_library.db`)
+
+**Implemented endpoints:** `/health`, `/library/people/*`, `/library/places/*`, `/library/objects/*`
+**Mockup endpoints:** `/encode` (saves original, returns fake .kpeg), `/decode` (returns original with AI-style effects: blur + warm tint + saturation boost + "Generated with AI" watermark)
+
+**Dependencies:** `flask>=3.0.0`, `Pillow>=10.0.0`
+
+**DB tables:** `people`, `people_selfies`, `places`, `place_photos` (with per-photo lat/lng/compass/tilt/timestamp), `objects`, `object_photos`
+
+**Photo storage:** `library/people/{user_id}/`, `library/places/{place_id}/`, `library/objects/{object_id}/`, `library/_originals/` (encode mockup)
+
+**To run:** `cd API && python3 api.py` (listens on `0.0.0.0:8000`)
