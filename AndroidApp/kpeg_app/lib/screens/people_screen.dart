@@ -1,9 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+
 import 'package:provider/provider.dart';
 import '../config/theme.dart';
 import '../providers/people_provider.dart';
-import '../services/face_recognition_service.dart';
 import '../widgets/kpeg_gradient_background.dart';
 import 'person_detail_screen.dart';
 
@@ -92,9 +92,7 @@ class _PeopleScreenState extends State<PeopleScreen> {
                       MaterialPageRoute(
                         builder: (_) => ChangeNotifierProvider.value(
                           value: provider,
-                          child: PersonDetailScreen(
-                            faceRecognition: context.read<FaceRecognitionService>(),
-                          ),
+                          child: const PersonDetailScreen(),
                         ),
                       ),
                     );
@@ -161,11 +159,19 @@ class _PeopleScreenState extends State<PeopleScreen> {
               CircleAvatar(
                 radius: 24,
                 backgroundColor: KpegTheme.accent.withValues(alpha: 0.2),
-                backgroundImage: person.referencePhotoPath != null
-                    ? FileImage(File(person.referencePhotoPath!))
+                backgroundImage: person.thumbnailPath != null
+                    ? FileImage(File(person.thumbnailPath!))
                     : null,
-                child: person.referencePhotoPath == null
-                    ? const Icon(Icons.person, color: KpegTheme.accent)
+                child: person.thumbnailPath == null
+                    ? Text(
+                        person.name.isNotEmpty
+                            ? person.name[0].toUpperCase()
+                            : '?',
+                        style: const TextStyle(
+                            color: KpegTheme.accent,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700),
+                      )
                     : null,
               ),
               const SizedBox(width: 14),
@@ -182,7 +188,7 @@ class _PeopleScreenState extends State<PeopleScreen> {
                           fontWeight: FontWeight.w600),
                     ),
                     Text(
-                      person.userId,
+                      person.visibleUserId,
                       style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.4),
                           fontSize: 12),
@@ -209,7 +215,7 @@ class _PeopleScreenState extends State<PeopleScreen> {
                       ],
                     ),
                   );
-                  if (confirm == true) provider.deletePerson(person.id!);
+                  if (confirm == true) provider.deletePerson(person.visibleUserId);
                 },
                 icon: Icon(Icons.delete_outline,
                     color: Colors.white.withValues(alpha: 0.3), size: 20),

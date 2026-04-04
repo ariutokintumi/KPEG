@@ -1,57 +1,72 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as p;
-import '../config/app_config.dart';
 import '../models/person.dart';
+import '../services/api_service.dart';
 import '../services/people_repository.dart';
 
 class PeopleProvider extends ChangeNotifier {
   final PeopleRepository _repo;
+  final ApiService _api;
 
-  PeopleProvider({required PeopleRepository repo}) : _repo = repo;
+  PeopleProvider({required PeopleRepository repo, required ApiService api})
+      : _repo = repo,
+        _api = api;
 
   List<Person> people = [];
 
+  /// Load people from local cache
   Future<void> loadPeople() async {
     people = await _repo.getAll();
     notifyListeners();
   }
 
-  /// Add person with multiple selfies + face embeddings
-  Future<Person> addPersonWithSelfies(
-    String name,
-    List<({File photo, Uint8List embedding})> selfies,
-  ) async {
-    final appDir = await getApplicationDocumentsDirectory();
-    final photosDir = Directory(p.join(appDir.path, AppConfig.peoplePhotosDir));
-    if (!await photosDir.exists()) await photosDir.create(recursive: true);
-
-    // Copy selfies to app storage and build embedding records
-    final savedSelfies = <({Uint8List embedding, String selfiePath})>[];
-    for (int i = 0; i < selfies.length; i++) {
-      final selfie = selfies[i];
-      final ext = p.extension(selfie.photo.path);
-      final ts = DateTime.now().millisecondsSinceEpoch + i;
-      final destPath = p.join(photosDir.path, 'selfie_$ts$ext');
-      await selfie.photo.copy(destPath);
-      savedSelfies.add((embedding: selfie.embedding, selfiePath: destPath));
+  /// Sync people list from server, update local cache
+  Future<void> syncFromServer() async {
+    try {
+      final serverList = await _api.listPeople();
+      // Only overwrite local cache if server returned data
+      if (serverList.isNotEmpty) {
+        final serverPeople = serverList.map((j) => Person.fromApiJson(j)).toList();
+        await _repo.syncFromServer(serverPeople);
+      }
+      await loadPeople();
+    } catch (_) {
+      // If server unavailable, keep local cache
+      await loadPeople();
     }
+  }
 
-    final person = Person(name: name);
-    final saved = await _repo.insertWithEmbeddings(person, savedSelfies);
+  /// Register person on server + cache locally
+  Future<Person> addPerson(String name, List<File> selfies, {String? thumbnailPath}) async {
+    final visibleUserId = Person.generateUserId(name);
+
+    // Register on server
+    await _api.registerPerson(
+      userId: visibleUserId,
+      name: name,
+      selfies: selfies,
+    );
+
+    // Cache locally
+    final person = Person(
+      visibleUserId: visibleUserId,
+      name: name,
+      selfieCount: selfies.length,
+      thumbnailPath: thumbnailPath,
+    );
+    await _repo.upsert(person);
     await loadPeople();
-    return saved;
+    return person;
   }
 
-  /// Get selfie paths for a person (for detail view)
-  Future<List<String>> getSelfiePaths(int personId) async {
-    return _repo.getSelfiePaths(personId);
-  }
-
-  Future<void> deletePerson(int id) async {
-    await _repo.delete(id);
+  /// Delete person from server + local cache
+  Future<void> deletePerson(String visibleUserId) async {
+    try {
+      await _api.deletePerson(visibleUserId);
+    } catch (_) {
+      // Continue with local delete even if server fails
+    }
+    await _repo.deleteByUserId(visibleUserId);
     await loadPeople();
   }
 }

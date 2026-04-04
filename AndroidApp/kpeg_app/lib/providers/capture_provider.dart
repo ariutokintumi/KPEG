@@ -9,6 +9,7 @@ import '../services/api_service.dart';
 import '../services/face_detection_service.dart';
 import '../services/face_recognition_service.dart';
 import '../services/kpeg_repository.dart';
+import '../services/people_repository.dart';
 import '../services/sensor_service.dart';
 
 enum CaptureState { idle, captured, detecting, encoding, success, error }
@@ -18,19 +19,22 @@ class CaptureProvider extends ChangeNotifier {
   final KpegRepository _kpegRepo;
   final SensorService _sensors;
   final FaceDetectionService _faceDetection;
-  final FaceRecognitionService _faceRecognition;
+  final FaceCropService _faceCrop;
+  final PeopleRepository _peopleRepo;
 
   CaptureProvider({
     required ApiService api,
     required KpegRepository kpegRepo,
     required SensorService sensors,
     required FaceDetectionService faceDetection,
-    required FaceRecognitionService faceRecognition,
+    required FaceCropService faceCrop,
+    required PeopleRepository peopleRepo,
   })  : _api = api,
         _kpegRepo = kpegRepo,
         _sensors = sensors,
         _faceDetection = faceDetection,
-        _faceRecognition = faceRecognition;
+        _faceCrop = faceCrop,
+        _peopleRepo = peopleRepo;
 
   CaptureState state = CaptureState.idle;
   File? photo;
@@ -41,6 +45,7 @@ class CaptureProvider extends ChangeNotifier {
   String sceneHint = '';
   String tagsText = '';
   String indoorDescription = '';
+  String? selectedPlaceId;
   String? errorMessage;
   KpegFile? lastSavedFile;
   SensorSnapshot? _sensorSnapshot;
@@ -90,10 +95,12 @@ class CaptureProvider extends ChangeNotifier {
         imageHeight: photoHeight!,
       );
 
-      // Auto-identify each detected face against the local library
+      // Auto-identify each face via server API
+      final allPeople = await _peopleRepo.getAll();
       for (final face in detectedFaces) {
         try {
-          final embedding = await _faceRecognition.extractEmbedding(
+          // Crop face and send to server for identification
+          final cropBytes = await _faceCrop.cropFaceJpeg(
             photo!,
             left: face.boundingBox.left,
             top: face.boundingBox.top,
@@ -102,17 +109,22 @@ class CaptureProvider extends ChangeNotifier {
             imageWidth: photoWidth!,
             imageHeight: photoHeight!,
           );
-          face.embedding = embedding;
 
-          final match = _faceRecognition.findMatch(embedding);
-          if (match.person != null) {
-            face.personId = match.person!.id;
-            face.userId = match.person!.userId;
-            face.personName = match.person!.name;
-            face.confidence = match.confidence;
+          final result = await _api.identifyFace(cropBytes);
+          if (result.userId != null && result.confidence > 0.3) {
+            // Find the person in our local cache
+            final matched = allPeople
+                .where((p) => p.visibleUserId == result.userId)
+                .toList();
+            if (matched.isNotEmpty) {
+              face.personId = matched.first.id;
+              face.userId = matched.first.visibleUserId;
+              face.personName = matched.first.name;
+              face.confidence = result.confidence;
+            }
           }
         } catch (_) {
-          // Face embedding extraction failed — leave as untagged
+          // Identification failed — leave as untagged
         }
       }
     } catch (_) {
@@ -160,6 +172,11 @@ class CaptureProvider extends ChangeNotifier {
 
   void setIndoorDescription(String desc) {
     indoorDescription = desc;
+  }
+
+  void setSelectedPlaceId(String? placeId) {
+    selectedPlaceId = placeId;
+    notifyListeners();
   }
 
   /// Generate or reuse session ID (30-min windows)
@@ -223,6 +240,7 @@ class CaptureProvider extends ChangeNotifier {
     sceneHint = '';
     tagsText = '';
     indoorDescription = '';
+    selectedPlaceId = null;
     errorMessage = null;
     lastSavedFile = null;
     _sensorSnapshot = null;
@@ -248,6 +266,7 @@ class CaptureProvider extends ChangeNotifier {
       people: detectedFaces,
       sceneHint: sceneHint.isNotEmpty ? sceneHint : null,
       tags: _parsedTags,
+      indoorPlaceId: selectedPlaceId,
       indoorDescription: indoorDescription.isNotEmpty ? indoorDescription : null,
       sessionId: _getSessionId(),
     );

@@ -14,16 +14,16 @@ class ApiService {
     this.useMock = AppConfig.useMock,
   });
 
-  /// POST /encode — envía imagen + metadata, recibe .kpeg binario
+  // ══════════════════════════════════════
+  // CORE PIPELINE
+  // ══════════════════════════════════════
+
   Future<Uint8List> encode(File imageFile, CaptureMetadata metadata) async {
     if (useMock) return _mockEncode(metadata);
 
     final uri = Uri.parse('$baseUrl/encode');
     final request = http.MultipartRequest('POST', uri);
-
-    request.files.add(
-      await http.MultipartFile.fromPath('image', imageFile.path),
-    );
+    request.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
     request.fields['metadata'] = jsonEncode(metadata.toJson());
 
     final response = await request.send().timeout(
@@ -31,22 +31,18 @@ class ApiService {
       onTimeout: () => throw Exception('Timeout encoding image'),
     );
 
-    if (response.statusCode == 200) {
-      return response.stream.toBytes();
-    }
+    if (response.statusCode == 200) return response.stream.toBytes();
 
     final body = await response.stream.bytesToString();
     final error = jsonDecode(body);
     throw Exception(error['error'] ?? 'Unknown error (${response.statusCode})');
   }
 
-  /// POST /decode — envía .kpeg binario, recibe JPEG reconstruido
   Future<Uint8List> decode(Uint8List kpegBytes, {String quality = 'balanced'}) async {
     if (useMock) return _mockDecode();
 
     final uri = Uri.parse('$baseUrl/decode');
     final request = http.MultipartRequest('POST', uri);
-
     request.files.add(
       http.MultipartFile.fromBytes('kpeg_file', kpegBytes, filename: 'file.kpeg'),
     );
@@ -54,21 +50,16 @@ class ApiService {
 
     final response = await request.send().timeout(
       const Duration(seconds: 120),
-      onTimeout: () => throw Exception('Decode timeout (AI reconstruction may take 15s+)'),
+      onTimeout: () => throw Exception('Decode timeout (AI may take 15s+)'),
     );
 
-    if (response.statusCode == 200) {
-      return response.stream.toBytes();
-    }
-
+    if (response.statusCode == 200) return response.stream.toBytes();
     final body = await response.stream.bytesToString();
     throw Exception('Decode error: $body');
   }
 
-  /// GET /health — verifica si el backend está disponible
   Future<bool> healthCheck() async {
     if (useMock) return true;
-
     try {
       final response = await http.get(Uri.parse('$baseUrl/health')).timeout(
         const Duration(seconds: 5),
@@ -79,28 +70,161 @@ class ApiService {
     }
   }
 
-  // ── Mock implementations ──
+  // ══════════════════════════════════════
+  // PEOPLE LIBRARY
+  // ══════════════════════════════════════
+
+  /// POST /library/people — register person with selfies
+  Future<Map<String, dynamic>> registerPerson({
+    required String userId,
+    required String name,
+    required List<File> selfies,
+  }) async {
+    if (useMock) {
+      await Future.delayed(const Duration(seconds: 1));
+      return {'user_id': userId, 'status': 'registered'};
+    }
+
+    final uri = Uri.parse('$baseUrl/library/people');
+    final request = http.MultipartRequest('POST', uri);
+    request.fields['user_id'] = userId;
+    request.fields['name'] = name;
+    for (final selfie in selfies) {
+      request.files.add(await http.MultipartFile.fromPath('selfies', selfie.path));
+    }
+
+    final response = await request.send().timeout(const Duration(seconds: 30));
+    final body = await response.stream.bytesToString();
+
+    if (response.statusCode == 200) return jsonDecode(body);
+    throw Exception('Failed to register person: $body');
+  }
+
+  /// GET /library/people — list all registered people
+  Future<List<Map<String, dynamic>>> listPeople() async {
+    if (useMock) {
+      return []; // Mock: empty list, people added via registerPerson
+    }
+
+    final response = await http.get(Uri.parse('$baseUrl/library/people')).timeout(
+      const Duration(seconds: 10),
+    );
+
+    if (response.statusCode == 200) {
+      return List<Map<String, dynamic>>.from(jsonDecode(response.body));
+    }
+    throw Exception('Failed to list people: ${response.body}');
+  }
+
+  /// DELETE /library/people/{user_id}
+  Future<void> deletePerson(String userId) async {
+    if (useMock) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      return;
+    }
+
+    final response = await http.delete(
+      Uri.parse('$baseUrl/library/people/$userId'),
+    ).timeout(const Duration(seconds: 10));
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to delete person: ${response.body}');
+    }
+  }
+
+  /// POST /library/people/identify — send face crop, get match
+  Future<({String? userId, double confidence})> identifyFace(Uint8List faceCropJpeg) async {
+    if (useMock) {
+      await Future.delayed(const Duration(milliseconds: 300));
+      return (userId: null, confidence: 0.0); // Mock: no match
+    }
+
+    final uri = Uri.parse('$baseUrl/library/people/identify');
+    final request = http.MultipartRequest('POST', uri);
+    request.files.add(
+      http.MultipartFile.fromBytes('face_crop', faceCropJpeg, filename: 'face.jpg'),
+    );
+
+    final response = await request.send().timeout(const Duration(seconds: 10));
+    final body = await response.stream.bytesToString();
+
+    if (response.statusCode == 200) {
+      final json = jsonDecode(body);
+      return (
+        userId: json['user_id'] as String?,
+        confidence: (json['confidence'] as num?)?.toDouble() ?? 0.0,
+      );
+    }
+    return (userId: null, confidence: 0.0);
+  }
+
+  // ══════════════════════════════════════
+  // PLACES LIBRARY
+  // ══════════════════════════════════════
+
+  Future<Map<String, dynamic>> registerPlace({
+    required String placeId,
+    required String name,
+    String? building,
+    String? floor,
+    required List<File> photos,
+  }) async {
+    if (useMock) {
+      await Future.delayed(const Duration(seconds: 1));
+      return {'place_id': placeId, 'status': 'registered'};
+    }
+
+    final uri = Uri.parse('$baseUrl/library/places');
+    final request = http.MultipartRequest('POST', uri);
+    request.fields['place_id'] = placeId;
+    request.fields['name'] = name;
+    if (building != null) request.fields['building'] = building;
+    if (floor != null) request.fields['floor'] = floor;
+    for (final photo in photos) {
+      request.files.add(await http.MultipartFile.fromPath('photos', photo.path));
+    }
+
+    final response = await request.send().timeout(const Duration(seconds: 30));
+    final body = await response.stream.bytesToString();
+    if (response.statusCode == 200) return jsonDecode(body);
+    throw Exception('Failed to register place: $body');
+  }
+
+  Future<List<Map<String, dynamic>>> listPlaces() async {
+    if (useMock) return [];
+
+    final response = await http.get(Uri.parse('$baseUrl/library/places')).timeout(
+      const Duration(seconds: 10),
+    );
+    if (response.statusCode == 200) {
+      return List<Map<String, dynamic>>.from(jsonDecode(response.body));
+    }
+    throw Exception('Failed to list places: ${response.body}');
+  }
+
+  Future<void> deletePlace(String placeId) async {
+    if (useMock) return;
+    await http.delete(Uri.parse('$baseUrl/library/places/$placeId')).timeout(
+      const Duration(seconds: 10),
+    );
+  }
+
+  // ══════════════════════════════════════
+  // MOCK IMPLEMENTATIONS
+  // ══════════════════════════════════════
 
   Future<Uint8List> _mockEncode(CaptureMetadata metadata) async {
     await Future.delayed(const Duration(seconds: 2));
-
-    // Generar un .kpeg mock (~1KB): header + metadata comprimida simulada
     final mockJson = jsonEncode(metadata.toJson());
-    const header = 'KPEG\x01\x00'; // magic bytes + version
-    final content = header + mockJson;
-    return Uint8List.fromList(utf8.encode(content));
+    const header = 'KPEG\x01\x00';
+    return Uint8List.fromList(utf8.encode(header + mockJson));
   }
 
   Future<Uint8List> _mockDecode() async {
-    // Simular el delay de la IA (3s en mock para no aburrir)
     await Future.delayed(const Duration(seconds: 3));
-
-    // Generar un JPEG mínimo válido (1x1 pixel gris)
-    // En producción esto sería la imagen reconstruida por IA
     return _minimalJpeg();
   }
 
-  /// JPEG mínimo válido de 1x1 pixel (para mock)
   Uint8List _minimalJpeg() {
     return Uint8List.fromList([
       0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01,

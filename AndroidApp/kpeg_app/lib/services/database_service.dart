@@ -16,7 +16,7 @@ class DatabaseService {
 
     return openDatabase(
       path,
-      version: 2,
+      version: 5,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
       onConfigure: (db) async {
@@ -26,23 +26,30 @@ class DatabaseService {
   }
 
   Future<void> _onCreate(Database db, int version) async {
+    // People: local cache of server-side people library
     await db.execute('''
       CREATE TABLE people (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL UNIQUE,
         name TEXT NOT NULL,
-        reference_photo_path TEXT,
         selfie_count INTEGER NOT NULL DEFAULT 0,
+        thumbnail_path TEXT,
         created_at TEXT NOT NULL
       )
     ''');
 
     await db.execute('''
-      CREATE TABLE face_embeddings (
+      CREATE TABLE places (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        person_id INTEGER NOT NULL,
-        embedding BLOB NOT NULL,
-        selfie_path TEXT NOT NULL,
-        FOREIGN KEY (person_id) REFERENCES people(id) ON DELETE CASCADE
+        place_id TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        building TEXT,
+        floor TEXT,
+        description TEXT,
+        lat REAL,
+        lng REAL,
+        photo_count INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL
       )
     ''');
 
@@ -60,23 +67,34 @@ class DatabaseService {
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 2) {
-      // Add face_embeddings table
+    // Rebuild from scratch for hackathon — data is on server anyway
+    if (oldVersion < 5) {
+      await db.execute('DROP TABLE IF EXISTS face_embeddings');
+      await db.execute('DROP TABLE IF EXISTS people');
       await db.execute('''
-        CREATE TABLE IF NOT EXISTS face_embeddings (
+        CREATE TABLE people (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
-          person_id INTEGER NOT NULL,
-          embedding BLOB NOT NULL,
-          selfie_path TEXT NOT NULL,
-          FOREIGN KEY (person_id) REFERENCES people(id) ON DELETE CASCADE
+          user_id TEXT NOT NULL UNIQUE,
+          name TEXT NOT NULL,
+          selfie_count INTEGER NOT NULL DEFAULT 0,
+          thumbnail_path TEXT,
+          created_at TEXT NOT NULL
         )
       ''');
-      // Add selfie_count column to people
-      try {
-        await db.execute('ALTER TABLE people ADD COLUMN selfie_count INTEGER NOT NULL DEFAULT 0');
-      } catch (_) {
-        // Column might already exist
-      }
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS places (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          place_id TEXT NOT NULL UNIQUE,
+          name TEXT NOT NULL,
+          building TEXT,
+          floor TEXT,
+          description TEXT,
+          lat REAL,
+          lng REAL,
+          photo_count INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL
+        )
+      ''');
     }
   }
 }

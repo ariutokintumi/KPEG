@@ -6,11 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **KPEG** is a ultra-compressed image format (~1-2KB) developed at the ETHGlobal Cannes Hackathon. A photo is encoded into a tiny `.kpeg` file containing a color bitmap, metadata, and an AI scene description. An AI later reconstructs a visually similar photo from that data. The pitch: "Your entire life's photo library fitting on a floppy disk."
 
-**Team:** 2 people. This repo covers the **App** (with on-device face recognition). A teammate builds the encode/decode backend separately.
+**Team:** 2 people. This repo covers the **App**. A teammate builds the encode/decode + people library backend.
 
-**Privacy-first:** Face detection, recognition, and person profiles stay entirely on-device. No biometric data ever leaves the phone. This is a key selling point for the pitch.
-
-**Language:** Spanish for UI strings, comments, and documentation.
+**Language:** English for UI, Spanish for internal comments and documentation.
 
 ## Architecture
 
@@ -21,23 +19,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 │  - Camera capture                │
 │  - Metadata collection (sensors) │
 │  - Face detection (ML Kit)       │  ON-DEVICE
-│  - Face recognition (ML Kit)     │  (privacy-first)
-│  - Person profiles (SQLite)      │
 │  - .kpeg local storage           │
 │  - Gallery + decode viewer       │
+│  - People cache (SQLite)         │
 │                                  │
 │                                  │     ┌──────────────────────┐
-│                                  │────▶│  Encode/Decode API   │
-│                                  │◀────│  (teammate's backend) │
+│                                  │────▶│  Backend API         │
+│                                  │◀────│  (teammate's server)  │
 │                                  │     │  POST /encode        │
 │                                  │     │  POST /decode        │
+│                                  │     │  /library/people/*   │
 │                                  │     │  GET  /health        │
 │                                  │     └──────────────────────┘
 └──────────────────────────────────┘
 ```
 
-**Encode/Decode API runs on localhost** (same WiFi, hackathon presencial).
-**Face recognition is 100% on-device** — no server needed, no biometric data transmitted.
+**All services on localhost** (same WiFi, hackathon).
+**Face detection on-device** (ML Kit). **Face identification via server** (`POST /library/people/identify`).
+**People library on server** — app caches locally, syncs on launch.
 
 ## Data Flow
 
@@ -142,25 +141,25 @@ Sent as the `metadata` field in `/encode`:
 - `bbox` coordinates are normalized 0.0–1.0 (not pixels), relative to image dimensions, top-left origin
 - Capture sensor data AT the moment of photo capture (compass/tilt change fast)
 
-## On-Device Face Recognition (privacy-first)
+## Face Detection + Server-Side Identification
 
-All face processing happens locally on the phone. No biometric data is ever sent to any server.
+### Flow
+1. ML Kit detects faces on-device (bounding boxes)
+2. Each face is cropped and sent to `POST /library/people/identify` on the server
+3. Server returns `user_id` + `confidence` for each face
+4. App auto-tags based on confidence: >0.8 green, 0.5-0.8 yellow, <0.5 red ("Unknown")
+5. User can manually correct/assign faces via bottom sheet picker
 
-### Technology Stack
-- **Face detection:** Google ML Kit Face Detection (`google_mlkit_face_detection` Flutter package)
-- **Face recognition/matching:** ML Kit or TFLite model for face embeddings — compare embeddings against stored profiles
-- **Profile storage:** SQLite on-device (`sqflite` Flutter package)
+### People Library API (server-side)
+- `POST /library/people` — register person (name, user_id, 2-5 selfies)
+- `GET /library/people` — list all registered people
+- `DELETE /library/people/{user_id}` — delete person
+- `POST /library/people/identify` — send face crop JPEG, returns match
 
-### How It Works
-1. User creates person profiles in the app (name + reference face photo)
-2. App extracts face embedding from reference photo and stores it in local SQLite
-3. When a new photo is captured, ML Kit detects faces and extracts embeddings
-4. Embeddings are compared against stored profiles (cosine similarity) to find matches
-5. Matched `user_id` + normalized `bbox` are added to the metadata JSON sent to `/encode`
-
-### Data Model (SQLite)
-- **people** table: `id`, `name`, `created_at`
-- **face_embeddings** table: `id`, `person_id`, `embedding` (binary), `reference_photo_path`
+### Local Cache
+- SQLite `people` table caches server data (user_id, name, selfie_count)
+- Synced on app launch via `GET /library/people`
+- "Unknown" person always available as standard option
 
 ## Flutter App Screens
 

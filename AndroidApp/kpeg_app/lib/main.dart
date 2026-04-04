@@ -4,16 +4,18 @@ import 'config/theme.dart';
 import 'providers/capture_provider.dart';
 import 'providers/gallery_provider.dart';
 import 'providers/people_provider.dart';
+import 'providers/places_provider.dart';
 import 'services/api_service.dart';
 import 'services/database_service.dart';
 import 'services/face_detection_service.dart';
 import 'services/face_recognition_service.dart';
 import 'services/kpeg_repository.dart';
 import 'services/people_repository.dart';
+import 'services/places_repository.dart';
 import 'services/sensor_service.dart';
 import 'screens/capture_screen.dart';
 import 'screens/gallery_screen.dart';
-import 'screens/people_screen.dart';
+import 'screens/library_screen.dart';
 
 void main() {
   runApp(const KpegApp());
@@ -28,21 +30,21 @@ class KpegApp extends StatelessWidget {
     final apiService = ApiService();
     final kpegRepo = KpegRepository(dbService);
     final peopleRepo = PeopleRepository(dbService);
+    final placesRepo = PlacesRepository(dbService);
     final sensorService = SensorService();
     final faceDetectionService = FaceDetectionService();
-    final faceRecognitionService = FaceRecognitionService(peopleRepo);
+    final faceCropService = FaceCropService();
 
     return MultiProvider(
       providers: [
-        // Make FaceRecognitionService available to all screens
-        Provider<FaceRecognitionService>.value(value: faceRecognitionService),
         ChangeNotifierProvider(
           create: (_) => CaptureProvider(
             api: apiService,
             kpegRepo: kpegRepo,
             sensors: sensorService,
             faceDetection: faceDetectionService,
-            faceRecognition: faceRecognitionService,
+            faceCrop: faceCropService,
+            peopleRepo: peopleRepo,
           ),
         ),
         ChangeNotifierProvider(
@@ -52,7 +54,10 @@ class KpegApp extends StatelessWidget {
           ),
         ),
         ChangeNotifierProvider(
-          create: (_) => PeopleProvider(repo: peopleRepo),
+          create: (_) => PeopleProvider(repo: peopleRepo, api: apiService),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => PlacesProvider(repo: placesRepo, api: apiService),
         ),
       ],
       child: MaterialApp(
@@ -78,15 +83,15 @@ class _MainShellState extends State<MainShell> {
   final _screens = const [
     CaptureScreen(),
     GalleryScreen(),
-    PeopleScreen(),
+    LibraryScreen(),
   ];
 
   @override
   void initState() {
     super.initState();
-    // Load face embeddings on app start
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<FaceRecognitionService>().loadEmbeddings();
+      context.read<PeopleProvider>().syncFromServer();
+      context.read<PlacesProvider>().syncFromServer();
     });
   }
 
@@ -101,7 +106,6 @@ class _MainShellState extends State<MainShell> {
         selectedIndex: _currentIndex,
         onDestinationSelected: (index) {
           if (index == 1) context.read<GalleryProvider>().loadFiles();
-          if (index == 2) context.read<PeopleProvider>().loadPeople();
           setState(() => _currentIndex = index);
         },
         backgroundColor: KpegTheme.bgDark1,
@@ -118,9 +122,9 @@ class _MainShellState extends State<MainShell> {
             label: 'Gallery',
           ),
           NavigationDestination(
-            icon: Icon(Icons.people_outline),
-            selectedIcon: Icon(Icons.people_rounded, color: KpegTheme.accent),
-            label: 'People',
+            icon: Icon(Icons.library_books_outlined),
+            selectedIcon: Icon(Icons.library_books_rounded, color: KpegTheme.accent),
+            label: 'Library',
           ),
         ],
       ),

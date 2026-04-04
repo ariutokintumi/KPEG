@@ -1,9 +1,9 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../config/theme.dart';
 import '../models/person.dart';
 import '../providers/capture_provider.dart';
+import '../providers/places_provider.dart';
 import '../providers/people_provider.dart';
 import '../widgets/kpeg_gradient_background.dart';
 import '../widgets/face_overlay.dart';
@@ -96,16 +96,28 @@ class _CaptureScreenState extends State<CaptureScreen> {
                     // Formulario de metadata (solo si hay foto)
                     if (provider.state == CaptureState.captured) ...[
                       const SizedBox(height: 12),
-                      MetadataForm(
-                        isOutdoor: provider.isOutdoor,
-                        onOutdoorChanged: provider.setOutdoor,
-                        sceneHint: provider.sceneHint,
-                        onSceneHintChanged: provider.setSceneHint,
-                        tagsText: provider.tagsText,
-                        onTagsChanged: provider.setTagsText,
-                        indoorDescription: provider.indoorDescription,
-                        onIndoorDescriptionChanged: provider.setIndoorDescription,
-                      ),
+                      Builder(builder: (ctx) {
+                        final placesProvider = ctx.watch<PlacesProvider>();
+                        final selectedPlace = provider.selectedPlaceId != null
+                            ? placesProvider.places
+                                .where((p) => p.placeId == provider.selectedPlaceId)
+                                .toList()
+                            : <dynamic>[];
+                        return MetadataForm(
+                          isOutdoor: provider.isOutdoor,
+                          onOutdoorChanged: provider.setOutdoor,
+                          sceneHint: provider.sceneHint,
+                          onSceneHintChanged: provider.setSceneHint,
+                          tagsText: provider.tagsText,
+                          onTagsChanged: provider.setTagsText,
+                          indoorDescription: provider.indoorDescription,
+                          onIndoorDescriptionChanged: provider.setIndoorDescription,
+                          nearbyPlaces: placesProvider.places,
+                          selectedPlace: selectedPlace.isNotEmpty ? selectedPlace.first : null,
+                          onPlaceChanged: (place) =>
+                              provider.setSelectedPlaceId(place?.placeId),
+                        );
+                      }),
                     ],
                   ],
                 ),
@@ -334,25 +346,23 @@ class _CaptureScreenState extends State<CaptureScreen> {
         backgroundColor: person.isUnknown
             ? Colors.white.withValues(alpha: 0.1)
             : KpegTheme.accent.withValues(alpha: 0.2),
-        backgroundImage: person.referencePhotoPath != null
-            ? FileImage(File(person.referencePhotoPath!))
-            : null,
-        child: person.referencePhotoPath == null
-            ? Icon(
-                person.isUnknown ? Icons.help_outline : Icons.person,
-                color: person.isUnknown ? Colors.white54 : KpegTheme.accent,
-                size: 20,
-              )
-            : null,
+        child: person.isUnknown
+            ? const Icon(Icons.help_outline, color: Colors.white54, size: 20)
+            : Text(
+                person.name.isNotEmpty ? person.name[0].toUpperCase() : '?',
+                style: const TextStyle(
+                    color: KpegTheme.accent,
+                    fontWeight: FontWeight.w700),
+              ),
       ),
       title: Text(person.name,
           style: const TextStyle(color: Colors.white, fontSize: 15)),
-      subtitle: Text(person.userId,
+      subtitle: Text(person.visibleUserId,
           style: TextStyle(
               color: Colors.white.withValues(alpha: 0.4), fontSize: 12)),
       onTap: () {
         provider.assignPersonToFace(
-            faceIndex, person.id ?? -1, person.userId, person.name);
+            faceIndex, person.id ?? -1, person.visibleUserId, person.name);
         Navigator.pop(ctx);
       },
     );
