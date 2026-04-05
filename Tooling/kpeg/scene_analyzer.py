@@ -39,7 +39,11 @@ def _image_to_base64(image: Image.Image) -> tuple[str, str]:
     return base64.standard_b64encode(buf.getvalue()).decode("ascii"), "image/jpeg"
 
 
-def _build_system_prompt(objects_catalog: str, known_people: list[dict]) -> str:
+def _build_system_prompt(
+    objects_catalog: str,
+    known_people: list[dict],
+    place_context: Optional[str] = None,
+) -> str:
     """Build the prompt that tells Claude to output FLUX-ready scene JSON."""
     people_lines = []
     for p in known_people:
@@ -52,12 +56,25 @@ def _build_system_prompt(objects_catalog: str, known_people: list[dict]) -> str:
             people_lines.append(f"- {ref} UNKNOWN (no library match), bbox {bbox}")
     people_text = "\n".join(people_lines) if people_lines else "(none)"
 
+    place_section = ""
+    if place_context:
+        place_section = f"""
+=== LOCATION CONTEXT (App-confirmed venue, use as background inspiration) ===
+{place_context}
+
+The user has already confirmed WHERE this photo was taken. Use this venue as
+the BACKGROUND context in your scene description. It helps FLUX anchor the
+setting to a specific known place. Mention the venue character (hall, cafe,
+outdoor terrace, office, etc.) naturally in s.d when relevant. Do NOT invent
+location details beyond what you see in the photo + what's stated here.
+"""
+
     return f"""You analyze photos and emit scene JSON TO BE CONSUMED BY FLUX for reconstruction.
 
 You are NOT describing for a human. You are writing a PROMPT BLUEPRINT.
 Every field you write is concatenated directly into the FLUX text prompt.
 Write prompt-ready phrases, not prose.
-
+{place_section}
 === MOST IMPORTANT: s.d (SCENE DESCRIPTION) ===
 This field is the FLUX primary prompt. It MUST:
 1. Start with the MAIN SUBJECT of the photo (person, object, or event).
@@ -137,6 +154,7 @@ def analyze_scene(
     image: Image.Image,
     known_people: list[dict],
     objects_catalog: Optional[list[dict]] = None,
+    place_context: Optional[str] = None,
     max_tokens: int = 2000,
 ) -> dict:
     """Call Claude Vision with the photo + catalog, return parsed scene JSON.
@@ -145,6 +163,9 @@ def analyze_scene(
         image: PIL image of the source photo.
         known_people: from App metadata: [{"ref":"usr_xxx|unknownN","bbox":[...],"name":"..."}]
         objects_catalog: list of {"id","name","category"} from library.
+        place_context: optional "<name> — <indoor_description>" string telling
+            Claude where the photo was taken (App-confirmed venue). Used as
+            background inspiration in s.d so FLUX can anchor the scene.
         max_tokens: cap on Claude's response.
 
     Returns:
@@ -157,7 +178,7 @@ def analyze_scene(
 
     client = Anthropic(api_key=ANTHROPIC_API_KEY)
     catalog_text = format_objects_catalog_for_prompt(objects_catalog or [])
-    system = _build_system_prompt(catalog_text, known_people)
+    system = _build_system_prompt(catalog_text, known_people, place_context=place_context)
     img_b64, media_type = _image_to_base64(image)
 
     response = client.messages.create(

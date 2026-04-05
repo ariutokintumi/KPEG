@@ -131,3 +131,39 @@ def test_analyze_scene_passes_catalog_to_prompt():
 
     call_kwargs = mock_client.messages.create.call_args.kwargs
     assert "obj_unique_xyz" in call_kwargs["system"]
+
+
+def test_build_system_prompt_includes_place_context():
+    """App-confirmed venue should appear in the system prompt as LOCATION CONTEXT."""
+    prompt = _build_system_prompt(
+        "(empty library)", [],
+        place_context="ETHGlobal Hall - near exit, wide view",
+    )
+    assert "LOCATION CONTEXT" in prompt
+    assert "ETHGlobal Hall" in prompt
+    assert "near exit, wide view" in prompt
+
+
+def test_build_system_prompt_place_context_optional():
+    """Without place_context, the LOCATION CONTEXT section should be absent."""
+    prompt = _build_system_prompt("(empty library)", [])
+    assert "LOCATION CONTEXT" not in prompt
+
+
+def test_analyze_scene_passes_place_context_to_prompt():
+    """Verify place_context reaches Claude's system prompt verbatim."""
+    fake_response = MagicMock()
+    fake_response.content = [MagicMock(text='{"s":{"d":"x"},"o":[],"t":[],"colors":[]}')]
+    mock_client = MagicMock()
+    mock_client.messages.create.return_value = fake_response
+
+    with patch("kpeg.scene_analyzer.Anthropic", return_value=mock_client), \
+         patch("kpeg.scene_analyzer.ANTHROPIC_API_KEY", "fake-key"):
+        analyze_scene(
+            _test_image(), known_people=[], objects_catalog=[],
+            place_context="WeWork Cannes - 2nd floor meeting room",
+        )
+
+    call_kwargs = mock_client.messages.create.call_args.kwargs
+    assert "WeWork Cannes" in call_kwargs["system"]
+    assert "2nd floor meeting room" in call_kwargs["system"]

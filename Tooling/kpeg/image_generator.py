@@ -1,13 +1,20 @@
 """FLUX image generator for KPEG decode (fal.ai integration).
 
 Two-stage pipeline:
-  Stage 1: color guide bitmap + text prompt → FLUX img2img → base photo
-  Stage 2: base photo + library reference images → FLUX Kontext Pro → refined photo
+  Stage 1: color guide bitmap + text prompt → FLUX (i2i OR t2i) → base photo
+  Stage 2: base photo + library refs + bitmap → FLUX Kontext Pro → refined photo
 
 Quality tiers (matches App's fast/balanced/high):
-  fast      → Stage 1 only (FLUX Schnell), ~1-2s
-  balanced  → Stage 1 (FLUX Pro) + Stage 2 if refs exist, ~7-14s
-  high      → Stage 1 (FLUX Pro 1.1) + Stage 2 + upscale, ~10-20s
+  fast      → Stage 1 only (FLUX Schnell t2i, bitmap IGNORED for speed), ~1-2s
+  balanced  → Stage 1 (FLUX Dev i2i, bitmap used as structural guide)
+              + Stage 2 Kontext (bitmap + library refs), ~7-14s
+  high      → Stage 1 (FLUX Pro 1.1 t2i)
+              + Stage 2 Kontext (bitmap + library refs as anchor)
+              + Clarity upscaler, ~10-20s
+
+The bitmap is always injected into Stage 2's reference_image_urls (see
+decoder._collect_reference_urls), so even t2i tiers like 'high' get a
+color/composition anchor. Only 'fast' intentionally skips the bitmap.
 
 This module wraps fal.ai and accepts a `_submit` override so tests can run
 entirely offline without hitting the network.

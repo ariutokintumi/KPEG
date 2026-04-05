@@ -32,10 +32,14 @@ from .config import FAL_KEY
 
 # Cap reference images so we don't blow past FLUX's max per request
 MAX_REFERENCE_IMAGES = 8
-# Faces > places > objects when deciding what to keep under the cap
+# Priority ordering when the list gets truncated.
+# People identity > bitmap color-DNA > place > object.
+# The bitmap sits above place/object because it's the ONLY structural anchor
+# for tiers whose Stage-1 doesn't accept an img2img input (fast, high).
 _REF_PRIORITY_PEOPLE = 0
-_REF_PRIORITY_PLACES = 1
-_REF_PRIORITY_OBJECTS = 2
+_REF_PRIORITY_BITMAP = 1
+_REF_PRIORITY_PLACES = 2
+_REF_PRIORITY_OBJECTS = 3
 
 
 def _file_path_to_data_url(file_path: str) -> Optional[str]:
@@ -53,13 +57,32 @@ def _file_path_to_data_url(file_path: str) -> Optional[str]:
     return f"data:{mime};base64,{b64}"
 
 
-def _collect_reference_urls(scene: dict, metadata: dict) -> list[str]:
+def _pil_to_data_url(img: Image.Image, fmt: str = "PNG") -> str:
+    """Encode a PIL image to a base64 data URL (used for the bitmap guide)."""
+    buf = io.BytesIO()
+    img.convert("RGB").save(buf, format=fmt)
+    b64 = base64.standard_b64encode(buf.getvalue()).decode("ascii")
+    mime = "image/png" if fmt.upper() == "PNG" else "image/jpeg"
+    return f"data:{mime};base64,{b64}"
+
+
+def _collect_reference_urls(
+    scene: dict,
+    metadata: dict,
+    guide_image: Optional[Image.Image] = None,
+) -> list[str]:
     """Walk the scene refs + place metadata to build the library reference list.
 
     Priority order (so people are kept first when truncating):
-      1. usr_xxx (faces)
-      2. place refs closest to camera angle
-      3. obj_xxx (distinctive objects)
+      1. usr_xxx (faces) — identity preservation
+      2. bitmap color-DNA guide — structural anchor (critical for fast/high tiers
+         whose Stage-1 model is t2i and therefore ignores the bitmap)
+      3. place refs closest to camera angle
+      4. obj_xxx (distinctive objects)
+
+    The bitmap guide is always first-after-faces so Stage 2 Kontext always
+    receives color/composition guidance — otherwise the hard work done by the
+    bitmap generator at encode time would be wasted on t2i tiers.
     """
     prioritized: list[tuple[int, str]] = []
 
@@ -71,6 +94,10 @@ def _collect_reference_urls(scene: dict, metadata: dict) -> list[str]:
                 url = _file_path_to_data_url(path)
                 if url:
                     prioritized.append((_REF_PRIORITY_PEOPLE, url))
+
+    # Bitmap color-DNA guide — ensures Stage 2 Kontext always has structural input
+    if guide_image is not None:
+        prioritized.append((_REF_PRIORITY_BITMAP, _pil_to_data_url(guide_image)))
 
     # Places — pick angle-matched refs
     place_id = (scene.get("p") or {}).get("place")
@@ -151,9 +178,10 @@ def decode(
     guide_size = min(512, max(out_w, out_h))
     guide = render_bitmap(custom_palette, grid, keypoints, width=guide_size, height=guide_size)
 
-    # 5. Resolve library refs
+    # 5. Resolve library refs — bitmap goes in too, so t2i tiers still get
+    #    structural guidance via Stage 2 Kontext
     metadata = scene.get("m") or {}
-    reference_urls = _collect_reference_urls(scene, metadata)
+    reference_urls = _collect_reference_urls(scene, metadata, guide_image=guide)
 
     # 6. Generate via FLUX
     camera = scene.get("c") or {}

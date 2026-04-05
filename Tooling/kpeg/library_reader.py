@@ -10,7 +10,7 @@ import sqlite3
 from pathlib import Path
 from typing import Optional
 
-from .config import DATABASE_PATH
+from .config import DATABASE_PATH, LIBRARY_DIR
 
 
 def _connect():
@@ -18,6 +18,39 @@ def _connect():
     conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def _normalize_library_path(stored_path: str) -> str:
+    """Rewrite a stored path to the local LIBRARY_DIR if it doesn't resolve.
+
+    The DB stores ABSOLUTE paths from whichever machine did the registration
+    (e.g. `/home/jmaria/PROYECTOS/KPEG/API/library/people/usr_xxx/selfie_0.jpg`
+    from Jose's Linux box). When the decoder runs on any other machine, those
+    absolute paths don't exist and FLUX would receive no references.
+
+    This helper finds the `library/` segment in the stored path and rebases
+    the tail against the local `LIBRARY_DIR` from config. It's a read-time
+    rewrite — the DB itself is never mutated.
+
+    Examples:
+      /home/jmaria/PROYECTOS/KPEG/API/library/people/usr_X/s.jpg
+        -> {LIBRARY_DIR}/people/usr_X/s.jpg
+      D:/…/KPEG/API/library/objects/obj_Y/photo_0.jpg
+        -> {LIBRARY_DIR}/objects/obj_Y/photo_0.jpg
+    """
+    if not stored_path:
+        return stored_path
+    # Fast path: path resolves as-is (e.g. running on the same machine)
+    if Path(stored_path).exists():
+        return stored_path
+
+    norm = stored_path.replace("\\", "/")
+    marker = "/library/"
+    idx = norm.rfind(marker)  # rfind so we match the LAST segment (handles nesting)
+    if idx < 0:
+        return stored_path  # no rewrite possible
+    tail = norm[idx + len(marker):]
+    return str(Path(LIBRARY_DIR) / tail)
 
 
 # ═══ Objects ═══
@@ -43,7 +76,7 @@ def format_objects_catalog_for_prompt(objects: list[dict]) -> str:
 
 
 def get_object_photos(object_id: str) -> list[str]:
-    """Return file paths for an object's reference photos."""
+    """Return file paths for an object's reference photos, rebased to local LIBRARY_DIR."""
     if not Path(DATABASE_PATH).exists():
         return []
     conn = _connect()
@@ -51,7 +84,7 @@ def get_object_photos(object_id: str) -> list[str]:
         "SELECT file_path FROM object_photos WHERE object_id = ?", (object_id,),
     ).fetchall()
     conn.close()
-    return [r["file_path"] for r in rows]
+    return [_normalize_library_path(r["file_path"]) for r in rows]
 
 
 def get_object_info(object_id: str) -> Optional[dict]:
@@ -119,7 +152,7 @@ def select_best_place_refs(
         refs.append({
             "id": f"{place_id}_p{p['id']}",
             "hint": ", ".join(hint_parts) if hint_parts else "reference view",
-            "file_path": p["file_path"],
+            "file_path": _normalize_library_path(p["file_path"]),
         })
     return refs
 
@@ -136,7 +169,7 @@ def get_place_name(place_id: str) -> Optional[str]:
 # ═══ People ═══
 
 def get_person_photos(user_id: str) -> list[str]:
-    """Return file paths for a person's selfies (used by decoder for face refinement)."""
+    """Return file paths for a person's selfies, rebased to local LIBRARY_DIR."""
     if not Path(DATABASE_PATH).exists():
         return []
     conn = _connect()
@@ -144,7 +177,7 @@ def get_person_photos(user_id: str) -> list[str]:
         "SELECT file_path FROM people_selfies WHERE user_id = ?", (user_id,),
     ).fetchall()
     conn.close()
-    return [r["file_path"] for r in rows]
+    return [_normalize_library_path(r["file_path"]) for r in rows]
 
 
 def get_person_name(user_id: str) -> Optional[str]:

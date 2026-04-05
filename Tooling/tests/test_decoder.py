@@ -219,6 +219,60 @@ def test_collect_reference_urls_empty_scene():
         assert _collect_reference_urls({"o": []}, {}) == []
 
 
+def test_collect_reference_urls_includes_bitmap_guide():
+    """When a guide image is passed, it gets injected as a data URL."""
+    guide = _tiny_image(w=32, h=32, color=(10, 200, 50))
+    with patch("kpeg.library_reader.DATABASE_PATH", Path("/nowhere.db")):
+        urls = _collect_reference_urls({}, {}, guide_image=guide)
+    assert len(urls) == 1
+    assert urls[0].startswith("data:image/png;base64,")
+
+
+def test_collect_reference_urls_bitmap_ranked_after_people(temp_library):
+    """Priority ordering: people (0) > bitmap (1) > places (2) > objects (3)."""
+    scene = {
+        "o": [
+            {"n": "lamp", "ref": "obj_lamp"},
+            {"n": "person", "ref": "usr_ana"},
+        ],
+        "p": {"place": "place_x"},
+    }
+    guide = _tiny_image(w=32, h=32, color=(255, 0, 0))
+    urls = _collect_reference_urls(scene, {}, guide_image=guide)
+    # Expect: person (jpeg), bitmap (png), place (jpeg), object (jpeg)
+    assert len(urls) >= 3
+    # Person is first
+    assert urls[0].startswith("data:image/jpeg;base64,")
+    # Bitmap is at index 1 (PNG)
+    assert urls[1].startswith("data:image/png;base64,")
+
+
+def test_collect_reference_urls_no_guide_no_png(temp_library):
+    """When guide is None, no PNG (bitmap) appears."""
+    scene = {"o": [{"n": "person", "ref": "usr_ana"}]}
+    urls = _collect_reference_urls(scene, {}, guide_image=None)
+    assert len(urls) == 1
+    assert not any(u.startswith("data:image/png") for u in urls)
+
+
+def test_decode_passes_bitmap_to_stage2_kontext(temp_library):
+    """End-to-end: decode must include bitmap PNG in Kontext reference_image_urls."""
+    scene = {
+        "s": {"d": "room"},
+        "o": [{"n": "person", "b": [0, 0, 1, 1], "d": "woman", "ref": "usr_ana"}],
+        "t": [], "colors": [],
+    }
+    metadata = {"people": [{"user_id": "usr_ana", "bbox": [0, 0, 1, 1]}]}
+    kpeg_bytes = _build_kpeg(scene, metadata)
+    submit = _make_submit(_tiny_image())
+    decode(kpeg_bytes, quality="balanced", submit=submit)
+
+    kontext_args = next(args for m, args in submit.calls if "kontext" in m)
+    refs = kontext_args["reference_image_urls"]
+    assert any(u.startswith("data:image/png") for u in refs), \
+        f"bitmap PNG guide missing from Kontext refs: {[u[:30] for u in refs]}"
+
+
 # ═══ Full decode ═══
 
 def test_decode_round_trip_produces_jpeg_bytes():

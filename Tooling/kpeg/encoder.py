@@ -42,6 +42,7 @@ from .library_reader import (
     get_objects_catalog,
     select_best_place_refs,
     get_person_name,
+    get_place_name,
 )
 from .scene_analyzer import analyze_scene
 
@@ -264,7 +265,20 @@ def encode(
         scene = scene_override
     else:
         objects_catalog = get_objects_catalog(limit=100)
-        scene = analyze_scene(image_rgb, known_people, objects_catalog)
+        # Build place context from App-confirmed venue (helps Claude anchor
+        # the scene to a specific known location). Format:
+        #   "<place name> - <user-provided room/area description>"
+        place_context = None
+        indoor_place_id = metadata.get("indoor_place_id")
+        if indoor_place_id:
+            name = get_place_name(indoor_place_id)
+            desc = metadata.get("indoor_description") or ""
+            parts = [p for p in (name, desc) if p]
+            if parts:
+                place_context = " - ".join(parts)
+        scene = analyze_scene(
+            image_rgb, known_people, objects_catalog, place_context=place_context
+        )
 
     # 3. Select place_refs by camera angle
     place_refs = []
