@@ -37,6 +37,13 @@ class KpegRepository {
     Uint8List kpegBytes, {
     String? sceneHint,
     String? originalPhotoPath,
+    String? imageId,
+    String? hederaFileId,
+    String? hederaTopicId,
+    String? hederaTopicTxId,
+    String? hederaNftTokenId,
+    String? hederaNftSerial,
+    String? hederaNetwork,
   }) async {
     final now = DateTime.now();
     final filename = _generateFilename(now);
@@ -63,6 +70,13 @@ class KpegRepository {
       fileSizeBytes: kpegBytes.length,
       sceneHint: sceneHint,
       thumbnailPath: thumbnailPath,
+      imageId: imageId,
+      hederaFileId: hederaFileId,
+      hederaTopicId: hederaTopicId,
+      hederaTopicTxId: hederaTopicTxId,
+      hederaNftTokenId: hederaNftTokenId,
+      hederaNftSerial: hederaNftSerial,
+      hederaNetwork: hederaNetwork,
     );
 
     final db = await _dbService.database;
@@ -76,6 +90,13 @@ class KpegRepository {
       fileSizeBytes: kpegFile.fileSizeBytes,
       sceneHint: kpegFile.sceneHint,
       thumbnailPath: kpegFile.thumbnailPath,
+      imageId: kpegFile.imageId,
+      hederaFileId: kpegFile.hederaFileId,
+      hederaTopicId: kpegFile.hederaTopicId,
+      hederaTopicTxId: kpegFile.hederaTopicTxId,
+      hederaNftTokenId: kpegFile.hederaNftTokenId,
+      hederaNftSerial: kpegFile.hederaNftSerial,
+      hederaNetwork: kpegFile.hederaNetwork,
     );
   }
 

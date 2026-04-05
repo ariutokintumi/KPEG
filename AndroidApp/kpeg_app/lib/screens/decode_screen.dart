@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../config/theme.dart';
 import '../models/kpeg_file.dart';
 import '../providers/gallery_provider.dart';
+import '../widgets/hedera_info_sheet.dart';
 import '../widgets/kpeg_gradient_background.dart';
 import '../widgets/quality_selector.dart';
 
@@ -52,6 +53,19 @@ class DecodeScreen extends StatelessWidget {
                           ),
                         ],
                       ),
+                    ),
+                    // Botón info / blockchain
+                    IconButton(
+                      onPressed: () => HederaInfoSheet.show(context, file),
+                      icon: Icon(
+                        file.hasHederaData
+                            ? Icons.link_rounded
+                            : Icons.info_outline,
+                        color: file.hasHederaData
+                            ? KpegTheme.accent
+                            : Colors.white38,
+                      ),
+                      tooltip: 'Image properties',
                     ),
                   ],
                 ),

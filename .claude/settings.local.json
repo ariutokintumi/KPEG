@@ -26,7 +26,15 @@
       "Bash(pip --version)",
       "Bash(python -c \"from kpeg.config import print_config_status; print_config_status\\(\\)\")",
       "Bash(python -c \":*)",
-      "Bash(python -m pytest tests/ -v)"
+      "Bash(python -m pytest tests/ -v)",
+      "Bash(claude mcp:*)",
+      "Read(//home/jmaria/.claude/**)",
+      "Bash(npm --version)",
+      "WebFetch(domain:testnet.mirrornode.hedera.com)",
+      "WebFetch(domain:pypi.org)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(python3:*)"
     ]
   }
 }

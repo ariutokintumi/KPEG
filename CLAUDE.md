@@ -79,10 +79,12 @@ KPEG/
 │   │   └── widgets/           # FaceOverlay, MetadataForm, QualitySelector, KpegFileCard, etc.
 │   ├── pubspec.yaml
 │   └── android/
+├── .env                       # Hedera credentials (gitignored)
 ├── API/                       # Python backend (Flask + SQLite)
 │   ├── api.py                 # Flask app — all endpoints (library CRUD + encode/decode mockups)
+│   ├── hedera_service.py      # Hedera SDK integration (File Service + HCS + HTS)
 │   ├── database.py            # SQLite schema (kpeg_library.db) + CRUD helpers
-│   ├── requirements.txt       # flask>=3.0.0
+│   ├── requirements.txt       # flask, Pillow, hiero-sdk-python, python-dotenv
 │   └── library/               # Photo storage (gitignored)
 │       ├── people/{user_id}/  # Face crop selfies
 │       ├── places/{place_id}/ # Place reference photos
@@ -116,7 +118,7 @@ flutter clean && flutter pub get               # Clean rebuild
 
 | Endpoint | Method | Request | Response | Status |
 |----------|--------|---------|----------|--------|
-| `/encode` | POST | multipart: `image` (JPEG) + `metadata` (JSON) | `.kpeg` binary (≤2KB) | **Mockup** — saves original, returns header+metadata |
+| `/encode` | POST | multipart: `image` (JPEG) + `metadata` (JSON) | JSON: `{kpeg_base64, image_id, hedera}` | **Mockup** — saves original, registers on Hedera, returns JSON |
 | `/decode` | POST | multipart: `kpeg_file` + `quality` | Reconstructed JPEG | **Mockup** — returns the saved original |
 | `/health` | GET | — | `{"status": "ok"}` | Implemented |
 
@@ -124,7 +126,7 @@ flutter clean && flutter pub get               # Clean rebuild
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/library/people` | POST | Register person (user_id, name, 2-5 selfies, selfie_timestamps) |
+| `/library/people` | POST | Register person (user_id, name, selfies, selfie_timestamps) |
 | `/library/people` | GET | List all people |
 | `/library/people/{user_id}` | DELETE | Delete person |
 
@@ -132,7 +134,7 @@ flutter clean && flutter pub get               # Clean rebuild
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/library/places` | POST | Register place (place_id, name, 2-5 photos, photos_metadata with per-photo coordinates/angle) |
+| `/library/places` | POST | Register place (place_id, name, photos, photos_metadata with per-photo coordinates/angle) |
 | `/library/places` | GET | List all places |
 | `/library/places/{place_id}` | DELETE | Delete place |
 
@@ -140,9 +142,31 @@ flutter clean && flutter pub get               # Clean rebuild
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/library/objects` | POST | Register object (object_id, name, category, 1-3 photos) |
+| `/library/objects` | POST | Register object (object_id, name, category, photos) |
 | `/library/objects` | GET | List all objects |
 | `/library/objects/{object_id}` | DELETE | Delete object |
+
+### Photo Management (per-entity)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/library/people/{user_id}/selfies` | GET | List selfies (count + indices) |
+| `/library/people/{user_id}/selfie/{idx}` | GET | Serve selfie JPEG |
+| `/library/people/{user_id}/selfies` | POST | Add more selfies (no max limit) |
+| `/library/places/{place_id}/photos` | GET | List photos |
+| `/library/places/{place_id}/photo/{idx}` | GET | Serve photo JPEG |
+| `/library/places/{place_id}/photos` | POST | Add more photos (no max limit) |
+| `/library/objects/{object_id}/photos` | GET | List photos |
+| `/library/objects/{object_id}/photo/{idx}` | GET | Serve photo JPEG |
+| `/library/objects/{object_id}/photos` | POST | Add more photos (no max limit) |
+
+### Hedera
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/hedera/setup` | POST | Create HCS topic + NFT collection (once) |
+| `/hedera/status` | GET | Current Hedera state (topic_id, nft_token_id) |
+| `/hedera/info/{image_id}` | GET | Hedera metadata for an encoded image |
 
 ## Metadata JSON Structure
 
@@ -222,7 +246,7 @@ Sent as the `metadata` field in `/encode`:
 | `face_embeddings` | On-device face matching | person_id, embedding (BLOB, 4096 bytes) |
 | `places` | Indoor places cache | place_id, name, lat, lng, thumbnail_path |
 | `objects` | Indoor objects cache | object_id, name, category, thumbnail_path |
-| `kpeg_files` | Encoded .kpeg files | filename, file_path, file_size_bytes, thumbnail_path |
+| `kpeg_files` | Encoded .kpeg files | filename, file_path, file_size_bytes, thumbnail_path, hedera_file_id, hedera_nft_token_id, hedera_nft_serial, hedera_network |
 
 **Thumbnails** are local-only (120px, 60% JPEG quality). Never sent to the server. Used for:
 - Gallery: preview of each .kpeg file
@@ -250,9 +274,9 @@ Sent as the `metadata` field in `/encode`:
 - Delete with confirmation
 
 ### Library (3 sub-tabs)
-- **People**: face thumbnails, name, selfie count. Add with 2-5 selfies (auto face crop).
-- **Places**: photo thumbnails, name. Add with 2-5 photos + per-photo metadata (coordinates, camera angle).
-- **Objects**: photo thumbnails, name, category. Add with 1-3 photos + category picker.
+- **People**: face thumbnails, name, selfie count. Tap to view info + selfies from server. Add selfies (no max limit, auto face crop).
+- **Places**: photo thumbnails, name. Tap to view info + photos from server. Add photos (no max limit).
+- **Objects**: photo thumbnails, name, category. Tap to view info + photos from server. Add photos (no max limit).
 
 ## Critical Android Configuration
 
@@ -270,10 +294,36 @@ The `AndroidManifest.xml` must include:
 - **IP changes:** Verify with `ip a` before building for physical device
 - **Decode is slow:** 5-15 seconds for AI reconstruction — show loading state
 - **Sensor timing:** Compass/tilt captured AT photo moment, not after
-- **DB migrations:** Version bumps drop all tables — uninstall app on device when schema changes
+- **DB migrations:** Version bumps drop all tables — uninstall app on device when schema changes. Current DB version: **10**.
+- **Thumbnails lost on reinstall:** Local thumbnails are lost when app is reinstalled. Library tiles fall back to server photos via `Image.network`. Photos are always persisted on the server.
+- **API JSON field names:** Server returns `selfie_count` (people) and `photo_count` (places/objects) — not `count`. Flutter `fromApiJson()` factories must read `photo_count` to populate `photoCount` or the network thumbnail fallback won't trigger.
 - **App connects to real API** — `AppConfig.useMock = false`. Backend must be running.
 - **API URL config:** `AppConfig.apiBaseUrl` — use `10.0.2.2:8000` for emulator, PC's WiFi IP for physical device.
 - **Encode/decode are mockups** — teammate will replace `api.py` encode/decode with real AI processing. The mockup saves the original, and returns it with visual effects (blur, warm tint, boosted saturation, "Generated with AI" watermark) to simulate AI reconstruction.
+
+## Hedera Integration (Blockchain)
+
+**SDK:** `hiero-sdk-python` (Python). No Node.js — all backend is Python.
+**Services used:** File Service + Consensus Service (HCS) + Token Service (HTS/NFT)
+**Credentials:** `.env` at project root (gitignored). Needs `OPERATOR_ID`, `OPERATOR_KEY`, `NETWORK`.
+**State:** `API/.hedera_state.json` persists topic_id + nft_token_id after first `POST /hedera/setup`.
+
+### Hedera Flow (on each encode)
+1. Upload .kpeg to **File Service** → `file_id`
+2. Log `{user, image_id, file_id, timestamp}` to **HCS topic** → `topic_tx_id`
+3. Mint **NFT** with metadata referencing the file → `nft_serial`
+4. All three are best-effort — encode succeeds even if Hedera fails
+
+### Key Files
+- `API/hedera_service.py` — Hedera SDK wrapper (setup, create_file, log_message, mint_nft, register_image)
+- `API/.hedera_state.json` — persisted topic_id + nft_token_id (gitignored)
+- `.env` — Hedera credentials (gitignored)
+
+### Hedera Gotchas
+- `PrivateKey.from_string_ecdsa()` — use this for ECDSA keys, not `from_string()` (avoids ambiguity warning)
+- `TokenId.from_string()` / `TopicId.from_string()` — SDK setters need typed objects, not raw strings
+- `POST /hedera/setup` must be called once before encoding (creates HCS topic + NFT collection)
+- Testnet accounts need HBAR — use faucet if `INSUFFICIENT_PAYER_BALANCE`
 
 ## Backend (API/)
 
@@ -282,9 +332,9 @@ The `AndroidManifest.xml` must include:
 **Implemented endpoints:** `/health`, `/library/people/*`, `/library/places/*`, `/library/objects/*`
 **Mockup endpoints:** `/encode` (saves original, returns fake .kpeg), `/decode` (returns original with AI-style effects: blur + warm tint + saturation boost + "Generated with AI" watermark)
 
-**Dependencies:** `flask>=3.0.0`, `Pillow>=10.0.0`
+**Dependencies:** `flask>=3.0.0`, `Pillow>=10.0.0`, `hiero-sdk-python>=0.2.0`, `python-dotenv>=1.0.0`
 
-**DB tables:** `people`, `people_selfies`, `places`, `place_photos` (with per-photo lat/lng/compass/tilt/timestamp), `objects`, `object_photos`
+**DB tables:** `people`, `people_selfies`, `places`, `place_photos`, `objects`, `object_photos`, `hedera_metadata`
 
 **Photo storage:** `library/people/{user_id}/`, `library/places/{place_id}/`, `library/objects/{object_id}/`, `library/_originals/` (encode mockup)
 

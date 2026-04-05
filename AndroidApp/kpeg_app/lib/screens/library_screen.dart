@@ -5,10 +5,13 @@ import '../config/theme.dart';
 import '../providers/objects_provider.dart';
 import '../providers/people_provider.dart';
 import '../providers/places_provider.dart';
+import '../services/api_service.dart';
 import '../widgets/kpeg_gradient_background.dart';
 import 'object_detail_screen.dart';
 import 'person_detail_screen.dart';
 import 'place_detail_screen.dart';
+
+final _api = ApiService();
 
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
@@ -143,7 +146,7 @@ class _PeopleTab extends StatelessWidget {
             MaterialPageRoute(
               builder: (_) => ChangeNotifierProvider.value(
                 value: provider,
-                child: const PersonDetailScreen(),
+                child: const PersonDetailScreen(person: null),
               ),
             ),
           );
@@ -154,14 +157,21 @@ class _PeopleTab extends StatelessWidget {
   }
 
   Widget _personTile(BuildContext context, PeopleProvider provider, person) {
+    // Usar thumbnail local si existe, sino foto del servidor
+    ImageProvider? bgImage;
+    if (person.thumbnailPath != null) {
+      bgImage = FileImage(File(person.thumbnailPath!));
+    } else if (person.selfieCount > 0) {
+      bgImage = NetworkImage(_api.personSelfieUrl(person.visibleUserId, 0));
+    }
+
     return _LibraryTile(
       leading: CircleAvatar(
         radius: 22,
         backgroundColor: KpegTheme.accent.withValues(alpha: 0.2),
-        backgroundImage: person.thumbnailPath != null
-            ? FileImage(File(person.thumbnailPath!))
-            : null,
-        child: person.thumbnailPath == null
+        backgroundImage: bgImage,
+        onBackgroundImageError: bgImage != null ? (_, __) {} : null,
+        child: bgImage == null
             ? Text(person.name[0].toUpperCase(),
                 style: const TextStyle(
                     color: KpegTheme.accent, fontWeight: FontWeight.w700))
@@ -171,6 +181,18 @@ class _PeopleTab extends StatelessWidget {
       subtitle: '${person.selfieCount} selfies',
       onDelete: () => _confirmDelete(
           context, 'Delete ${person.name}?', () => provider.deletePerson(person.visibleUserId)),
+      onTap: () async {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ChangeNotifierProvider.value(
+              value: provider,
+              child: PersonDetailScreen(person: person),
+            ),
+          ),
+        );
+        provider.loadPeople();
+      },
     );
   }
 }
@@ -202,7 +224,7 @@ class _PlacesTab extends StatelessWidget {
             MaterialPageRoute(
               builder: (_) => ChangeNotifierProvider.value(
                 value: provider,
-                child: const PlaceDetailScreen(),
+                child: const PlaceDetailScreen(place: null),
               ),
             ),
           );
@@ -214,12 +236,25 @@ class _PlacesTab extends StatelessWidget {
 
   Widget _placeTile(BuildContext context, PlacesProvider provider, place) {
     return _LibraryTile(
-      leading: _thumbnailOrIcon(place.thumbnailPath, Icons.place_rounded),
+      leading: _thumbnailOrIcon(place.thumbnailPath, Icons.place_rounded,
+          networkUrl: place.photoCount > 0 ? _api.placePhotoUrl(place.placeId, 0) : null),
       title: place.name,
       subtitle: place.description ?? '',
       extra: '${place.photoCount} photos',
       onDelete: () => _confirmDelete(
           context, 'Delete ${place.name}?', () => provider.deletePlace(place.placeId)),
+      onTap: () async {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ChangeNotifierProvider.value(
+              value: provider,
+              child: PlaceDetailScreen(place: place),
+            ),
+          ),
+        );
+        provider.loadPlaces();
+      },
     );
   }
 }
@@ -251,7 +286,7 @@ class _ObjectsTab extends StatelessWidget {
             MaterialPageRoute(
               builder: (_) => ChangeNotifierProvider.value(
                 value: provider,
-                child: const ObjectDetailScreen(),
+                child: const ObjectDetailScreen(object: null),
               ),
             ),
           );
@@ -263,12 +298,25 @@ class _ObjectsTab extends StatelessWidget {
 
   Widget _objectTile(BuildContext context, ObjectsProvider provider, obj) {
     return _LibraryTile(
-      leading: _thumbnailOrIcon(obj.thumbnailPath, Icons.category_rounded),
+      leading: _thumbnailOrIcon(obj.thumbnailPath, Icons.category_rounded,
+          networkUrl: obj.photoCount > 0 ? _api.objectPhotoUrl(obj.objectId, 0) : null),
       title: obj.name,
       subtitle: obj.category,
       extra: '${obj.photoCount} photos',
       onDelete: () => _confirmDelete(
           context, 'Delete ${obj.name}?', () => provider.deleteObject(obj.objectId)),
+      onTap: () async {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ChangeNotifierProvider.value(
+              value: provider,
+              child: ObjectDetailScreen(object: obj),
+            ),
+          ),
+        );
+        provider.loadObjects();
+      },
     );
   }
 }
@@ -283,6 +331,7 @@ class _LibraryTile extends StatelessWidget {
   final String subtitle;
   final String? extra;
   final VoidCallback onDelete;
+  final VoidCallback? onTap;
 
   const _LibraryTile({
     required this.leading,
@@ -290,56 +339,73 @@ class _LibraryTile extends StatelessWidget {
     required this.subtitle,
     this.extra,
     required this.onDelete,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: KpegTheme.accent.withValues(alpha: 0.1)),
-      ),
-      child: Row(
-        children: [
-          leading,
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style: const TextStyle(
-                        color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)),
-                if (subtitle.isNotEmpty)
-                  Text(subtitle,
-                      style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.4), fontSize: 12)),
-                if (extra != null)
-                  Text(extra!,
-                      style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.3), fontSize: 11)),
-              ],
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: KpegTheme.accent.withValues(alpha: 0.1)),
+        ),
+        child: Row(
+          children: [
+            leading,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: const TextStyle(
+                          color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)),
+                  if (subtitle.isNotEmpty)
+                    Text(subtitle,
+                        style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.4), fontSize: 12)),
+                  if (extra != null)
+                    Text(extra!,
+                        style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.3), fontSize: 11)),
+                ],
+              ),
             ),
-          ),
-          IconButton(
-            onPressed: onDelete,
-            icon: Icon(Icons.delete_outline,
-                color: Colors.white.withValues(alpha: 0.3), size: 20),
-          ),
-        ],
+            IconButton(
+              onPressed: onDelete,
+              icon: Icon(Icons.delete_outline,
+                  color: Colors.white.withValues(alpha: 0.3), size: 20),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-Widget _thumbnailOrIcon(String? thumbnailPath, IconData fallbackIcon) {
+Widget _thumbnailOrIcon(String? thumbnailPath, IconData fallbackIcon, {String? networkUrl}) {
   if (thumbnailPath != null) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(10),
       child: Image.file(
         File(thumbnailPath),
+        width: 44,
+        height: 44,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _iconBox(fallbackIcon),
+      ),
+    );
+  }
+  // Fallback: cargar del servidor si hay URL
+  if (networkUrl != null) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: Image.network(
+        networkUrl,
         width: 44,
         height: 44,
         fit: BoxFit.cover,

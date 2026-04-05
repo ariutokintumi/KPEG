@@ -62,6 +62,17 @@ def init_db():
             file_path TEXT NOT NULL,
             FOREIGN KEY (object_id) REFERENCES objects(object_id) ON DELETE CASCADE
         );
+
+        CREATE TABLE IF NOT EXISTS hedera_metadata (
+            image_id TEXT PRIMARY KEY,
+            file_id TEXT,
+            topic_id TEXT,
+            topic_tx_id TEXT,
+            nft_token_id TEXT,
+            nft_serial TEXT,
+            network TEXT,
+            created_at TEXT NOT NULL
+        );
     ''')
     conn.commit()
     conn.close()
@@ -104,6 +115,31 @@ def person_exists(user_id):
     row = conn.execute('SELECT 1 FROM people WHERE user_id = ?', (user_id,)).fetchone()
     conn.close()
     return row is not None
+
+
+def get_person_selfies(user_id):
+    conn = get_db()
+    rows = conn.execute(
+        'SELECT file_path, timestamp FROM people_selfies WHERE user_id = ? ORDER BY id',
+        (user_id,)
+    ).fetchall()
+    conn.close()
+    return [{'file_path': r['file_path'], 'timestamp': r['timestamp']} for r in rows]
+
+
+def add_person_selfies(user_id, paths, timestamps):
+    conn = get_db()
+    for path, ts in zip(paths, timestamps):
+        conn.execute(
+            'INSERT INTO people_selfies (user_id, file_path, timestamp) VALUES (?, ?, ?)',
+            (user_id, path, ts)
+        )
+    conn.execute(
+        'UPDATE people SET selfie_count = selfie_count + ? WHERE user_id = ?',
+        (len(paths), user_id)
+    )
+    conn.commit()
+    conn.close()
 
 
 # ── Places ──
@@ -150,6 +186,39 @@ def place_exists(place_id):
     return row is not None
 
 
+def get_place_photos(place_id):
+    conn = get_db()
+    rows = conn.execute(
+        'SELECT file_path, lat, lng, compass_heading, camera_tilt, timestamp '
+        'FROM place_photos WHERE place_id = ? ORDER BY id',
+        (place_id,)
+    ).fetchall()
+    conn.close()
+    return [{'file_path': r['file_path'], 'lat': r['lat'], 'lng': r['lng'],
+             'compass_heading': r['compass_heading'], 'camera_tilt': r['camera_tilt'],
+             'timestamp': r['timestamp']} for r in rows]
+
+
+def add_place_photos(place_id, paths, photos_metadata):
+    conn = get_db()
+    for i, path in enumerate(paths):
+        meta = photos_metadata[i] if i < len(photos_metadata) else {}
+        conn.execute(
+            'INSERT INTO place_photos (place_id, file_path, lat, lng, compass_heading, camera_tilt, timestamp) '
+            'VALUES (?, ?, ?, ?, ?, ?, ?)',
+            (place_id, path,
+             meta.get('lat'), meta.get('lng'),
+             meta.get('compass_heading'), meta.get('camera_tilt'),
+             meta.get('timestamp', 0))
+        )
+    conn.execute(
+        'UPDATE places SET photo_count = photo_count + ? WHERE place_id = ?',
+        (len(paths), place_id)
+    )
+    conn.commit()
+    conn.close()
+
+
 # ── Objects ──
 
 def insert_object(object_id, name, category, photo_paths):
@@ -187,3 +256,71 @@ def object_exists(object_id):
     row = conn.execute('SELECT 1 FROM objects WHERE object_id = ?', (object_id,)).fetchone()
     conn.close()
     return row is not None
+
+
+def get_object_photos(object_id):
+    conn = get_db()
+    rows = conn.execute(
+        'SELECT file_path FROM object_photos WHERE object_id = ? ORDER BY id',
+        (object_id,)
+    ).fetchall()
+    conn.close()
+    return [{'file_path': r['file_path']} for r in rows]
+
+
+def add_object_photos(object_id, paths):
+    conn = get_db()
+    for path in paths:
+        conn.execute(
+            'INSERT INTO object_photos (object_id, file_path) VALUES (?, ?)',
+            (object_id, path)
+        )
+    conn.execute(
+        'UPDATE objects SET photo_count = photo_count + ? WHERE object_id = ?',
+        (len(paths), object_id)
+    )
+    conn.commit()
+    conn.close()
+
+
+# ── Hedera Metadata ──
+
+def insert_hedera_metadata(image_id, hedera_info):
+    conn = get_db()
+    now = __import__('datetime').datetime.now().isoformat()
+    conn.execute(
+        'INSERT OR REPLACE INTO hedera_metadata '
+        '(image_id, file_id, topic_id, topic_tx_id, nft_token_id, nft_serial, network, created_at) '
+        'VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        (image_id,
+         hedera_info.get('file_id'),
+         hedera_info.get('topic_id'),
+         hedera_info.get('topic_tx_id'),
+         hedera_info.get('nft_token_id'),
+         hedera_info.get('nft_serial'),
+         hedera_info.get('network', 'testnet'),
+         now)
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_hedera_metadata(image_id):
+    conn = get_db()
+    row = conn.execute(
+        'SELECT image_id, file_id, topic_id, topic_tx_id, nft_token_id, nft_serial, network, created_at '
+        'FROM hedera_metadata WHERE image_id = ?', (image_id,)
+    ).fetchone()
+    conn.close()
+    if row is None:
+        return None
+    return {
+        'image_id': row['image_id'],
+        'file_id': row['file_id'],
+        'topic_id': row['topic_id'],
+        'topic_tx_id': row['topic_tx_id'],
+        'nft_token_id': row['nft_token_id'],
+        'nft_serial': row['nft_serial'],
+        'network': row['network'],
+        'created_at': row['created_at'],
+    }

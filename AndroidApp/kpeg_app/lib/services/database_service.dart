@@ -16,7 +16,7 @@ class DatabaseService {
 
     return openDatabase(
       path,
-      version: 9,
+      version: 10,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
       onConfigure: (db) async {
@@ -81,13 +81,20 @@ class DatabaseService {
         original_photo_path TEXT,
         file_size_bytes INTEGER NOT NULL,
         scene_hint TEXT,
-        thumbnail_path TEXT
+        thumbnail_path TEXT,
+        image_id TEXT,
+        hedera_file_id TEXT,
+        hedera_topic_id TEXT,
+        hedera_topic_tx_id TEXT,
+        hedera_nft_token_id TEXT,
+        hedera_nft_serial TEXT,
+        hedera_network TEXT
       )
     ''');
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 9) {
+    if (oldVersion < 10) {
       await db.execute('DROP TABLE IF EXISTS face_embeddings');
       await db.execute('DROP TABLE IF EXISTS people');
       await db.execute('DROP TABLE IF EXISTS places');

@@ -20,6 +20,10 @@ env/
 *.egg-info/
 .Python
 
+# Hedera
+.hedera_state.json
+node_modules/
+
 # Tooling runtime
 Tooling/sample_photos/*.kpeg
 Tooling/sample_photos/*_reconstructed.*

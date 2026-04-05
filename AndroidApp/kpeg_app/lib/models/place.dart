@@ -61,6 +61,7 @@ class Place {
     return Place(
       placeId: json['place_id'] as String,
       name: json['name'] as String,
+      photoCount: (json['photo_count'] as int?) ?? 0,
     );
   }
 }

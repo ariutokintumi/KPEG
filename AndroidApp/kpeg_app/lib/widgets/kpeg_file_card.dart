@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import '../config/theme.dart';
 import '../models/kpeg_file.dart';
+import 'hedera_info_sheet.dart';
 
 class KpegFileCard extends StatelessWidget {
   final KpegFile file;
@@ -84,6 +85,25 @@ class KpegFileCard extends StatelessWidget {
                 ],
               ),
             ),
+            // Icono Hedera si tiene datos blockchain
+            if (file.hasHederaData)
+              IconButton(
+                onPressed: () => HederaInfoSheet.show(context, file),
+                icon: const Icon(Icons.link_rounded,
+                    color: KpegTheme.accent, size: 18),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32),
+                tooltip: 'Blockchain info',
+              )
+            else
+              IconButton(
+                onPressed: () => HederaInfoSheet.show(context, file),
+                icon: Icon(Icons.info_outline,
+                    color: Colors.white.withValues(alpha: 0.2), size: 18),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32),
+                tooltip: 'Image info',
+              ),
             IconButton(
               onPressed: onDelete,
               icon: Icon(Icons.delete_outline,

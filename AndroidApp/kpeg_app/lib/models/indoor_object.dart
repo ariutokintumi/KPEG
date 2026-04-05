@@ -60,6 +60,7 @@ class IndoorObject {
       objectId: json['object_id'] as String,
       name: json['name'] as String,
       category: (json['category'] as String?) ?? 'other',
+      photoCount: (json['photo_count'] as int?) ?? 0,
     );
   }
 }

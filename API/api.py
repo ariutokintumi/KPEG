@@ -1,13 +1,19 @@
+import base64
 import json
 import os
 import shutil
 import sys
 import uuid
 from pathlib import Path
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from database import init_db, insert_person, list_people, delete_person, person_exists
+from database import get_person_selfies, add_person_selfies
 from database import insert_place, list_places, delete_place, place_exists
+from database import get_place_photos, add_place_photos
 from database import insert_object, list_objects, delete_object, object_exists
+from database import get_object_photos, add_object_photos
+from database import insert_hedera_metadata, get_hedera_metadata
+import hedera_service
 
 # Import KPEG engine from Tooling/
 _TOOLING_DIR = Path(__file__).resolve().parent.parent / 'Tooling'
@@ -41,7 +47,7 @@ def health():
 
 
 # ══════════════════════════════════════
-# ENCODE / DECODE — stubs for teammate
+# ENCODE / DECODE — real KPEG engine
 # ══════════════════════════════════════
 
 @app.route('/encode', methods=['POST'])
@@ -49,6 +55,7 @@ def encode():
     """
     Real KPEG encode: photo + metadata → ≤2KB .kpeg binary.
     Pipeline: palette + bitmap + Claude Vision scene JSON + library refs + Brotli.
+    Returns JSON with base64-encoded .kpeg + Hedera registration info.
     """
     if 'image' not in request.files:
         return jsonify({'error': 'No image provided'}), 422
@@ -76,11 +83,23 @@ def encode():
         f.write(kpeg_binary)
 
     print(f'📦 Encoded: {kpeg_id} ({len(kpeg_binary)} bytes)')
-    return kpeg_binary, 200, {
-        'Content-Type': 'application/octet-stream',
-        'X-KPEG-Id': kpeg_id,
-        'X-KPEG-Size': str(len(kpeg_binary)),
-    }
+
+    # Registrar en Hedera (best-effort — si falla, el encode sigue funcionando)
+    hedera_info = None
+    if hedera_service.is_available():
+        try:
+            hedera_info = hedera_service.register_image(kpeg_binary, kpeg_id)
+            if hedera_info:
+                insert_hedera_metadata(kpeg_id, hedera_info)
+        except Exception as e:
+            print(f'⚠️  Hedera registration failed: {e}')
+
+    # Devolver JSON con kpeg en base64 (la Flutter app lo espera así)
+    return jsonify({
+        'kpeg_base64': base64.b64encode(kpeg_binary).decode('ascii'),
+        'image_id': kpeg_id,
+        'hedera': hedera_info,
+    })
 
 
 @app.route('/decode', methods=['POST'])
@@ -112,14 +131,7 @@ def decode():
 
 @app.route('/update_people', methods=['POST'])
 def update_people():
-    """Batch re-tag unknown persons in a .kpeg without re-processing the image.
-
-    Request: multipart/form-data
-      - kpeg_file: existing .kpeg binary
-      - mapping:   JSON string, e.g. {"unknown1": "usr_maria", "unknown2": "usr_judge"}
-
-    Response: application/octet-stream with the updated .kpeg file.
-    """
+    """Batch re-tag unknown persons in a .kpeg without re-processing the image."""
     if 'kpeg_file' not in request.files:
         return jsonify({'error': 'No kpeg_file provided'}), 422
 
@@ -144,7 +156,6 @@ def update_people():
     except ValueError as e:
         return jsonify({'error': f'Invalid .kpeg file: {e}'}), 422
 
-    # Swap refs in the people list
     updated = 0
     for obj in scene.get('o', []):
         current = obj.get('ref', '')
@@ -155,7 +166,6 @@ def update_people():
     if updated == 0:
         return jsonify({'error': 'No matching unknowns found in .kpeg'}), 422
 
-    # Re-compress + re-pack (bitmap unchanged, flags unchanged except people)
     new_compressed = compress_json(scene)
     try:
         new_kpeg = pack_kpeg(
@@ -208,7 +218,6 @@ def register_person():
     if not selfies:
         return jsonify({'error': 'At least one selfie is required'}), 422
 
-    # Parse selfie timestamps
     timestamps_raw = request.form.get('selfie_timestamps', '[]')
     try:
         timestamps = json.loads(timestamps_raw)
@@ -218,7 +227,6 @@ def register_person():
     while len(timestamps) < len(selfies):
         timestamps.append(0)
 
-    # Save selfie files
     person_dir = ensure_dir(os.path.join(LIBRARY_DIR, 'people', user_id))
     saved_paths = []
     for i, selfie in enumerate(selfies):
@@ -253,6 +261,65 @@ def remove_person(user_id):
     return jsonify({'status': 'deleted'})
 
 
+@app.route('/library/people/<user_id>/selfies', methods=['GET'])
+def list_person_selfies(user_id):
+    if not person_exists(user_id):
+        return jsonify({'error': f'Person {user_id} not found'}), 404
+    selfies = get_person_selfies(user_id)
+    return jsonify({
+        'user_id': user_id,
+        'selfie_count': len(selfies),
+        'selfies': [{'index': i, 'timestamp': s['timestamp']} for i, s in enumerate(selfies)]
+    })
+
+
+@app.route('/library/people/<user_id>/selfie/<int:idx>', methods=['GET'])
+def serve_person_selfie(user_id, idx):
+    if not person_exists(user_id):
+        return jsonify({'error': f'Person {user_id} not found'}), 404
+    selfies = get_person_selfies(user_id)
+    if idx < 0 or idx >= len(selfies):
+        return jsonify({'error': f'Selfie index {idx} out of range (0-{len(selfies)-1})'}), 404
+    path = selfies[idx]['file_path']
+    if not os.path.exists(path):
+        return jsonify({'error': 'Selfie file not found on disk'}), 404
+    return send_file(path, mimetype='image/jpeg')
+
+
+@app.route('/library/people/<user_id>/selfies', methods=['POST'])
+def add_person_selfies_endpoint(user_id):
+    if not person_exists(user_id):
+        return jsonify({'error': f'Person {user_id} not found'}), 404
+
+    selfies = request.files.getlist('selfies')
+    if not selfies:
+        return jsonify({'error': 'At least one selfie is required'}), 422
+
+    timestamps_raw = request.form.get('selfie_timestamps', '[]')
+    try:
+        timestamps = json.loads(timestamps_raw)
+    except json.JSONDecodeError:
+        timestamps = []
+    while len(timestamps) < len(selfies):
+        timestamps.append(0)
+
+    existing = get_person_selfies(user_id)
+    start_idx = len(existing)
+
+    person_dir = ensure_dir(os.path.join(LIBRARY_DIR, 'people', user_id))
+    saved_paths = []
+    for i, selfie in enumerate(selfies):
+        filename = f'selfie_{start_idx + i}.jpg'
+        path = os.path.join(person_dir, filename)
+        selfie.save(path)
+        saved_paths.append(path)
+
+    add_person_selfies(user_id, saved_paths, timestamps)
+
+    print(f'📸 Added {len(selfies)} selfies to {user_id}')
+    return jsonify({'user_id': user_id, 'added': len(selfies), 'total': start_idx + len(selfies)})
+
+
 # ══════════════════════════════════════
 # PLACES LIBRARY
 # ══════════════════════════════════════
@@ -272,7 +339,6 @@ def register_place():
     if not photos:
         return jsonify({'error': 'At least one photo is required'}), 422
 
-    # Parse per-photo metadata
     metadata_raw = request.form.get('photos_metadata', '[]')
     try:
         photos_metadata = json.loads(metadata_raw)
@@ -282,7 +348,6 @@ def register_place():
     while len(photos_metadata) < len(photos):
         photos_metadata.append({})
 
-    # Save photo files
     place_dir = ensure_dir(os.path.join(LIBRARY_DIR, 'places', place_id))
     saved_paths = []
     for i, photo in enumerate(photos):
@@ -317,6 +382,67 @@ def remove_place(place_id):
     return jsonify({'status': 'deleted'})
 
 
+@app.route('/library/places/<place_id>/photos', methods=['GET'])
+def list_place_photos(place_id):
+    if not place_exists(place_id):
+        return jsonify({'error': f'Place {place_id} not found'}), 404
+    photos = get_place_photos(place_id)
+    return jsonify({
+        'place_id': place_id,
+        'photo_count': len(photos),
+        'photos': [{'index': i, 'lat': p['lat'], 'lng': p['lng'],
+                     'compass_heading': p['compass_heading'], 'camera_tilt': p['camera_tilt'],
+                     'timestamp': p['timestamp']} for i, p in enumerate(photos)]
+    })
+
+
+@app.route('/library/places/<place_id>/photo/<int:idx>', methods=['GET'])
+def serve_place_photo(place_id, idx):
+    if not place_exists(place_id):
+        return jsonify({'error': f'Place {place_id} not found'}), 404
+    photos = get_place_photos(place_id)
+    if idx < 0 or idx >= len(photos):
+        return jsonify({'error': f'Photo index {idx} out of range (0-{len(photos)-1})'}), 404
+    path = photos[idx]['file_path']
+    if not os.path.exists(path):
+        return jsonify({'error': 'Photo file not found on disk'}), 404
+    return send_file(path, mimetype='image/jpeg')
+
+
+@app.route('/library/places/<place_id>/photos', methods=['POST'])
+def add_place_photos_endpoint(place_id):
+    if not place_exists(place_id):
+        return jsonify({'error': f'Place {place_id} not found'}), 404
+
+    photos = request.files.getlist('photos')
+    if not photos:
+        return jsonify({'error': 'At least one photo is required'}), 422
+
+    metadata_raw = request.form.get('photos_metadata', '[]')
+    try:
+        photos_metadata = json.loads(metadata_raw)
+    except json.JSONDecodeError:
+        photos_metadata = []
+    while len(photos_metadata) < len(photos):
+        photos_metadata.append({})
+
+    existing = get_place_photos(place_id)
+    start_idx = len(existing)
+
+    place_dir = ensure_dir(os.path.join(LIBRARY_DIR, 'places', place_id))
+    saved_paths = []
+    for i, photo in enumerate(photos):
+        filename = f'photo_{start_idx + i}.jpg'
+        path = os.path.join(place_dir, filename)
+        photo.save(path)
+        saved_paths.append(path)
+
+    add_place_photos(place_id, saved_paths, photos_metadata)
+
+    print(f'📸 Added {len(photos)} photos to place {place_id}')
+    return jsonify({'place_id': place_id, 'added': len(photos), 'total': start_idx + len(photos)})
+
+
 # ══════════════════════════════════════
 # OBJECTS LIBRARY
 # ══════════════════════════════════════
@@ -341,7 +467,6 @@ def register_object():
     if not photos:
         return jsonify({'error': 'At least one photo is required'}), 422
 
-    # Save photo files
     object_dir = ensure_dir(os.path.join(LIBRARY_DIR, 'objects', object_id))
     saved_paths = []
     for i, photo in enumerate(photos):
@@ -376,6 +501,85 @@ def remove_object(object_id):
     return jsonify({'status': 'deleted'})
 
 
+@app.route('/library/objects/<object_id>/photos', methods=['GET'])
+def list_object_photos(object_id):
+    if not object_exists(object_id):
+        return jsonify({'error': f'Object {object_id} not found'}), 404
+    photos = get_object_photos(object_id)
+    return jsonify({
+        'object_id': object_id,
+        'photo_count': len(photos),
+        'photos': [{'index': i} for i in range(len(photos))]
+    })
+
+
+@app.route('/library/objects/<object_id>/photo/<int:idx>', methods=['GET'])
+def serve_object_photo(object_id, idx):
+    if not object_exists(object_id):
+        return jsonify({'error': f'Object {object_id} not found'}), 404
+    photos = get_object_photos(object_id)
+    if idx < 0 or idx >= len(photos):
+        return jsonify({'error': f'Photo index {idx} out of range (0-{len(photos)-1})'}), 404
+    path = photos[idx]['file_path']
+    if not os.path.exists(path):
+        return jsonify({'error': 'Photo file not found on disk'}), 404
+    return send_file(path, mimetype='image/jpeg')
+
+
+@app.route('/library/objects/<object_id>/photos', methods=['POST'])
+def add_object_photos_endpoint(object_id):
+    if not object_exists(object_id):
+        return jsonify({'error': f'Object {object_id} not found'}), 404
+
+    photos = request.files.getlist('photos')
+    if not photos:
+        return jsonify({'error': 'At least one photo is required'}), 422
+
+    existing = get_object_photos(object_id)
+    start_idx = len(existing)
+
+    object_dir = ensure_dir(os.path.join(LIBRARY_DIR, 'objects', object_id))
+    saved_paths = []
+    for i, photo in enumerate(photos):
+        filename = f'photo_{start_idx + i}.jpg'
+        path = os.path.join(object_dir, filename)
+        photo.save(path)
+        saved_paths.append(path)
+
+    add_object_photos(object_id, saved_paths)
+
+    print(f'📸 Added {len(photos)} photos to object {object_id}')
+    return jsonify({'object_id': object_id, 'added': len(photos), 'total': start_idx + len(photos)})
+
+
+# ══════════════════════════════════════
+# HEDERA
+# ══════════════════════════════════════
+
+@app.route('/hedera/setup', methods=['POST'])
+def hedera_setup():
+    """Crear topic HCS + colección NFT (llamar una vez al inicio)."""
+    result = hedera_service.setup()
+    if 'error' in result:
+        return jsonify(result), 500
+    return jsonify(result)
+
+
+@app.route('/hedera/status', methods=['GET'])
+def hedera_status():
+    """Estado actual de la integración Hedera."""
+    return jsonify(hedera_service.get_state())
+
+
+@app.route('/hedera/info/<image_id>', methods=['GET'])
+def hedera_info(image_id):
+    """Obtener metadatos Hedera de una imagen."""
+    meta = get_hedera_metadata(image_id)
+    if meta is None:
+        return jsonify({'error': f'No Hedera data for {image_id}'}), 404
+    return jsonify(meta)
+
+
 # ══════════════════════════════════════
 # STARTUP
 # ══════════════════════════════════════
@@ -387,5 +591,19 @@ if __name__ == '__main__':
     ensure_dir(os.path.join(LIBRARY_DIR, 'objects'))
     ensure_dir(KPEG_DIR)
     print(f'📂 Library: {LIBRARY_DIR}')
+
+    # Inicializar Hedera
+    if hedera_service.is_available():
+        state = hedera_service.get_state()
+        print(f'🔗 Hedera: {state["network"]} / {state["account_id"]}')
+        if state['topic_id']:
+            print(f'   Topic: {state["topic_id"]}')
+        if state['nft_token_id']:
+            print(f'   NFT:   {state["nft_token_id"]}')
+        if not state['topic_id'] or not state['nft_token_id']:
+            print('   ⚠️  Call POST /hedera/setup to initialize')
+    else:
+        print('⚠️  Hedera: not configured (check .env)')
+
     print(f'🚀 KPEG API on http://0.0.0.0:8000')
     app.run(host='0.0.0.0', port=8000, debug=True)

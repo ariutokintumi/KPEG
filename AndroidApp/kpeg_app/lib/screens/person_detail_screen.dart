@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image/image.dart' as img;
 import 'package:provider/provider.dart';
@@ -8,12 +9,16 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import '../config/app_config.dart';
 import '../config/theme.dart';
+import '../models/person.dart';
 import '../providers/people_provider.dart';
+import '../services/api_service.dart';
 import '../services/face_detection_service.dart';
 import '../widgets/kpeg_gradient_background.dart';
 
 class PersonDetailScreen extends StatefulWidget {
-  const PersonDetailScreen({super.key});
+  final Person? person;
+
+  const PersonDetailScreen({super.key, this.person});
 
   @override
   State<PersonDetailScreen> createState() => _PersonDetailScreenState();
@@ -28,9 +33,24 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
   String? _error;
 
   static const int _minSelfies = 2;
-  static const int _maxSelfies = 5;
 
   final _faceDetection = FaceDetectionService();
+  final _apiService = ApiService();
+
+  // Vista mode: foto count desde servidor
+  int _serverSelfieCount = 0;
+  bool _loadingCount = false;
+
+  bool get _isViewMode => widget.person != null;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isViewMode) {
+      _nameController.text = widget.person!.name;
+      _loadServerSelfieCount();
+    }
+  }
 
   @override
   void dispose() {
@@ -39,8 +59,21 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
     super.dispose();
   }
 
+  Future<void> _loadServerSelfieCount() async {
+    setState(() => _loadingCount = true);
+    try {
+      final count = await _apiService.getPersonSelfieCount(widget.person!.visibleUserId);
+      if (mounted) setState(() {
+        _serverSelfieCount = count;
+        _loadingCount = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loadingCount = false);
+    }
+  }
+
   Future<void> _addSelfie(ImageSource source) async {
-    if (_selfies.length >= _maxSelfies || _processing) return;
+    if (_processing) return;
 
     final picker = ImagePicker();
     final xfile = await picker.pickImage(
@@ -92,10 +125,29 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
       final cropped = img.copyCrop(image, x: cx, y: cy, width: cw, height: ch);
       final cropBytes = Uint8List.fromList(img.encodeJpg(cropped, quality: 85));
 
-      setState(() {
-        _selfies.add((original: file, faceCrop: cropBytes));
-        _processing = false;
-      });
+      if (_isViewMode) {
+        // En modo vista: guardar como archivo y enviar al servidor
+        final appDir = await getApplicationDocumentsDirectory();
+        final photosDir = Directory(p.join(appDir.path, AppConfig.peoplePhotosDir));
+        if (!await photosDir.exists()) await photosDir.create(recursive: true);
+        final ts = DateTime.now().millisecondsSinceEpoch;
+        final path = p.join(photosDir.path, 'face_$ts.jpg');
+        final cropFile = File(path);
+        await cropFile.writeAsBytes(cropBytes);
+
+        await _apiService.addPersonSelfies(widget.person!.visibleUserId, [cropFile]);
+        await _loadServerSelfieCount();
+
+        setState(() {
+          _processing = false;
+          _error = null;
+        });
+      } else {
+        setState(() {
+          _selfies.add((original: file, faceCrop: cropBytes));
+          _processing = false;
+        });
+      }
     } catch (e) {
       setState(() {
         _processing = false;
@@ -151,6 +203,15 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isViewMode) return _buildViewMode(context);
+    return _buildCreateMode(context);
+  }
+
+  // ══════════════════════════════════════
+  // CREATE MODE
+  // ══════════════════════════════════════
+
+  Widget _buildCreateMode(BuildContext context) {
     final canSave = _nameController.text.trim().isNotEmpty &&
         _selfies.length >= _minSelfies &&
         !_saving &&
@@ -213,9 +274,9 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
 
                       const SizedBox(height: 24),
 
-                      // Counter
+                      // Counter — sin maximo
                       Text(
-                        '${_selfies.length}/$_maxSelfies selfies (min $_minSelfies)',
+                        '${_selfies.length} selfies (min $_minSelfies)',
                         style: TextStyle(
                           color: _selfies.length >= _minSelfies
                               ? KpegTheme.accent
@@ -238,70 +299,11 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                       const SizedBox(height: 16),
 
                       // Processing indicator
-                      if (_processing)
-                        const Padding(
-                          padding: EdgeInsets.only(bottom: 12),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: KpegTheme.accent)),
-                              SizedBox(width: 8),
-                              Text('Detecting face...',
-                                  style: TextStyle(
-                                      color: KpegTheme.accent, fontSize: 13)),
-                            ],
-                          ),
-                        ),
+                      if (_processing) _processingIndicator(),
 
-                      // Add buttons
-                      if (_selfies.length < _maxSelfies && !_processing)
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: () =>
-                                    _addSelfie(ImageSource.camera),
-                                icon: const Icon(Icons.camera_alt_rounded,
-                                    size: 18),
-                                label: const Text('Camera'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: KpegTheme.accent,
-                                  side: BorderSide(
-                                      color: KpegTheme.accent
-                                          .withValues(alpha: 0.5)),
-                                  shape: RoundedRectangleBorder(
-                                      borderRadius:
-                                          BorderRadius.circular(12)),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: () =>
-                                    _addSelfie(ImageSource.gallery),
-                                icon: const Icon(
-                                    Icons.photo_library_outlined,
-                                    size: 18),
-                                label: const Text('Gallery'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: KpegTheme.accent,
-                                  side: BorderSide(
-                                      color: KpegTheme.accent
-                                          .withValues(alpha: 0.5)),
-                                  shape: RoundedRectangleBorder(
-                                      borderRadius:
-                                          BorderRadius.circular(12)),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                      // Add buttons — sin limite
+                      if (!_processing)
+                        _addButtons(),
 
                       if (_error != null) ...[
                         const SizedBox(height: 12),
@@ -350,6 +352,283 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  // ══════════════════════════════════════
+  // VIEW/EDIT MODE
+  // ══════════════════════════════════════
+
+  Widget _buildViewMode(BuildContext context) {
+    final person = widget.person!;
+
+    return Scaffold(
+      body: KpegGradientBackground(
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Header con nombre
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                    ),
+                    Expanded(
+                      child: Text(
+                        person.name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 12),
+
+                      // Info section
+                      _infoSection(person),
+
+                      const SizedBox(height: 24),
+
+                      // Selfie count
+                      Row(
+                        children: [
+                          Text(
+                            _loadingCount
+                                ? 'Loading selfies...'
+                                : '$_serverSelfieCount selfies on server',
+                            style: TextStyle(
+                              color: KpegTheme.accent,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          if (_loadingCount) ...[
+                            const SizedBox(width: 8),
+                            const SizedBox(
+                              width: 12, height: 12,
+                              child: CircularProgressIndicator(strokeWidth: 1.5, color: KpegTheme.accent),
+                            ),
+                          ],
+                        ],
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      // Existing selfies from server
+                      if (_serverSelfieCount > 0) _serverSelfieGrid(person),
+
+                      const SizedBox(height: 20),
+
+                      // Separator
+                      Text(
+                        'Add more selfies',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.5),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text('Face is auto-cropped from each photo',
+                          style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.3),
+                              fontSize: 12)),
+
+                      const SizedBox(height: 12),
+
+                      // Processing indicator
+                      if (_processing) _processingIndicator(),
+
+                      // Add buttons
+                      if (!_processing) _addButtons(),
+
+                      if (_error != null) ...[
+                        const SizedBox(height: 12),
+                        Text(_error!,
+                            style: const TextStyle(
+                                color: Colors.redAccent, fontSize: 13),
+                            textAlign: TextAlign.center),
+                      ],
+
+                      const SizedBox(height: 24),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _infoSection(Person person) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: KpegTheme.accent.withValues(alpha: 0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // User ID — copiable
+          Row(
+            children: [
+              Text('ID: ',
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12)),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    Clipboard.setData(ClipboardData(text: person.visibleUserId));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('User ID copied'), duration: Duration(seconds: 1)),
+                    );
+                  },
+                  child: Text(
+                    person.visibleUserId,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                      fontFamily: 'monospace',
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+              Icon(Icons.copy_rounded, size: 14, color: Colors.white.withValues(alpha: 0.3)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          // Created date
+          Text(
+            'Created: ${_formatDate(person.createdAt)}',
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12),
+          ),
+          const SizedBox(height: 4),
+          // Selfie count
+          Text(
+            'Selfies: ${person.selfieCount}',
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _serverSelfieGrid(Person person) {
+    return SizedBox(
+      height: 100,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: _serverSelfieCount,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (_, index) {
+          final url = _apiService.personSelfieUrl(person.visibleUserId, index);
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.network(
+              url,
+              width: 100,
+              height: 100,
+              fit: BoxFit.cover,
+              loadingBuilder: (_, child, progress) {
+                if (progress == null) return child;
+                return Container(
+                  width: 100,
+                  height: 100,
+                  color: Colors.white.withValues(alpha: 0.05),
+                  child: const Center(
+                    child: SizedBox(
+                      width: 20, height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: KpegTheme.accent),
+                    ),
+                  ),
+                );
+              },
+              errorBuilder: (_, __, ___) => Container(
+                width: 100,
+                height: 100,
+                color: Colors.white.withValues(alpha: 0.05),
+                child: Icon(Icons.broken_image_rounded,
+                    color: Colors.white.withValues(alpha: 0.2), size: 28),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // ══════════════════════════════════════
+  // SHARED WIDGETS
+  // ══════════════════════════════════════
+
+  Widget _processingIndicator() {
+    return const Padding(
+      padding: EdgeInsets.only(bottom: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: KpegTheme.accent)),
+          SizedBox(width: 8),
+          Text('Detecting face...',
+              style: TextStyle(color: KpegTheme.accent, fontSize: 13)),
+        ],
+      ),
+    );
+  }
+
+  Widget _addButtons() {
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () => _addSelfie(ImageSource.camera),
+            icon: const Icon(Icons.camera_alt_rounded, size: 18),
+            label: const Text('Camera'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: KpegTheme.accent,
+              side: BorderSide(color: KpegTheme.accent.withValues(alpha: 0.5)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () => _addSelfie(ImageSource.gallery),
+            icon: const Icon(Icons.photo_library_outlined, size: 18),
+            label: const Text('Gallery'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: KpegTheme.accent,
+              side: BorderSide(color: KpegTheme.accent.withValues(alpha: 0.5)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -438,5 +717,10 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
         },
       ),
     );
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} '
+        '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 }

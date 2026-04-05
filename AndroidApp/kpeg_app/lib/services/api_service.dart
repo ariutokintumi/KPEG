@@ -5,6 +5,38 @@ import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
 import '../models/capture_metadata.dart';
 
+/// Resultado de la operación de encode
+class EncodeResult {
+  final Uint8List kpegBytes;
+  final String imageId;
+  final HederaInfo? hederaInfo;
+
+  EncodeResult({
+    required this.kpegBytes,
+    required this.imageId,
+    this.hederaInfo,
+  });
+}
+
+/// Info de Hedera asociada a una imagen
+class HederaInfo {
+  final String? fileId;
+  final String? topicId;
+  final String? topicTxId;
+  final String? nftTokenId;
+  final String? nftSerial;
+  final String? network;
+
+  HederaInfo({
+    this.fileId,
+    this.topicId,
+    this.topicTxId,
+    this.nftTokenId,
+    this.nftSerial,
+    this.network,
+  });
+}
+
 class ApiService {
   final String baseUrl;
   final bool useMock;
@@ -18,8 +50,12 @@ class ApiService {
   // CORE PIPELINE
   // ══════════════════════════════════════
 
-  Future<Uint8List> encode(File imageFile, CaptureMetadata metadata) async {
-    if (useMock) return _mockEncode(metadata);
+  /// Resultado de encode: bytes .kpeg + info Hedera
+  Future<EncodeResult> encode(File imageFile, CaptureMetadata metadata) async {
+    if (useMock) {
+      final bytes = await _mockEncode(metadata);
+      return EncodeResult(kpegBytes: bytes, imageId: 'mock_${DateTime.now().millisecondsSinceEpoch}');
+    }
 
     final uri = Uri.parse('$baseUrl/encode');
     final request = http.MultipartRequest('POST', uri);
@@ -27,15 +63,38 @@ class ApiService {
     request.fields['metadata'] = jsonEncode(metadata.toJson());
 
     final response = await request.send().timeout(
-      const Duration(seconds: 60),
+      const Duration(seconds: 120),
       onTimeout: () => throw Exception('Timeout encoding image'),
     );
 
-    if (response.statusCode == 200) return response.stream.toBytes();
-
     final body = await response.stream.bytesToString();
-    final error = jsonDecode(body);
-    throw Exception(error['error'] ?? 'Unknown error (${response.statusCode})');
+    if (response.statusCode != 200) {
+      final error = jsonDecode(body);
+      throw Exception(error['error'] ?? 'Unknown error (${response.statusCode})');
+    }
+
+    final json = jsonDecode(body);
+    final kpegBytes = base64Decode(json['kpeg_base64'] as String);
+    final imageId = json['image_id'] as String?;
+    final hederaJson = json['hedera'] as Map<String, dynamic>?;
+
+    HederaInfo? hederaInfo;
+    if (hederaJson != null) {
+      hederaInfo = HederaInfo(
+        fileId: hederaJson['file_id'] as String?,
+        topicId: hederaJson['topic_id'] as String?,
+        topicTxId: hederaJson['topic_tx_id'] as String?,
+        nftTokenId: hederaJson['nft_token_id'] as String?,
+        nftSerial: hederaJson['nft_serial'] as String?,
+        network: hederaJson['network'] as String?,
+      );
+    }
+
+    return EncodeResult(
+      kpegBytes: kpegBytes,
+      imageId: imageId ?? '',
+      hederaInfo: hederaInfo,
+    );
   }
 
   Future<Uint8List> decode(Uint8List kpegBytes, {String quality = 'balanced'}) async {
@@ -269,6 +328,106 @@ class ApiService {
     await http.delete(Uri.parse('$baseUrl/library/objects/$objectId')).timeout(
       const Duration(seconds: 10),
     );
+  }
+
+  // ══════════════════════════════════════
+  // HEDERA
+  // ══════════════════════════════════════
+
+  /// POST /hedera/setup — inicializar topic HCS + colección NFT
+  Future<Map<String, dynamic>> hederaSetup() async {
+    if (useMock) return {'status': 'mock'};
+    final response = await http.post(Uri.parse('$baseUrl/hedera/setup')).timeout(
+      const Duration(seconds: 30),
+    );
+    return jsonDecode(response.body);
+  }
+
+  /// GET /hedera/status
+  Future<Map<String, dynamic>> hederaStatus() async {
+    if (useMock) return {'available': false};
+    final response = await http.get(Uri.parse('$baseUrl/hedera/status')).timeout(
+      const Duration(seconds: 10),
+    );
+    return jsonDecode(response.body);
+  }
+
+  // ══════════════════════════════════════
+  // PHOTO MANAGEMENT (view + add more)
+  // ══════════════════════════════════════
+
+  // --- People selfies ---
+
+  /// GET /library/people/{user_id}/selfies → {"count": N}
+  Future<int> getPersonSelfieCount(String userId) async {
+    if (useMock) return 0;
+    final response = await http.get(Uri.parse('$baseUrl/library/people/$userId/selfies')).timeout(const Duration(seconds: 10));
+    if (response.statusCode == 200) return (jsonDecode(response.body)['selfie_count'] as int?) ?? 0;
+    return 0;
+  }
+
+  /// URL for GET /library/people/{user_id}/selfie/{idx} → JPEG image
+  String personSelfieUrl(String userId, int index) => '$baseUrl/library/people/$userId/selfie/$index';
+
+  /// POST /library/people/{user_id}/selfies — add more selfies
+  Future<void> addPersonSelfies(String userId, List<File> selfies) async {
+    if (useMock) return;
+    final uri = Uri.parse('$baseUrl/library/people/$userId/selfies');
+    final request = http.MultipartRequest('POST', uri);
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    request.fields['selfie_timestamps'] = jsonEncode(List.generate(selfies.length, (i) => now + i));
+    for (final selfie in selfies) {
+      request.files.add(await http.MultipartFile.fromPath('selfies', selfie.path));
+    }
+    await request.send().timeout(const Duration(seconds: 30));
+  }
+
+  // --- Places photos ---
+
+  /// GET /library/places/{place_id}/photos → {"count": N}
+  Future<int> getPlacePhotoCount(String placeId) async {
+    if (useMock) return 0;
+    final response = await http.get(Uri.parse('$baseUrl/library/places/$placeId/photos')).timeout(const Duration(seconds: 10));
+    if (response.statusCode == 200) return (jsonDecode(response.body)['photo_count'] as int?) ?? 0;
+    return 0;
+  }
+
+  /// URL for GET /library/places/{place_id}/photo/{idx} → JPEG image
+  String placePhotoUrl(String placeId, int index) => '$baseUrl/library/places/$placeId/photo/$index';
+
+  /// POST /library/places/{place_id}/photos — add more photos
+  Future<void> addPlacePhotos(String placeId, List<File> photos) async {
+    if (useMock) return;
+    final uri = Uri.parse('$baseUrl/library/places/$placeId/photos');
+    final request = http.MultipartRequest('POST', uri);
+    for (final photo in photos) {
+      request.files.add(await http.MultipartFile.fromPath('photos', photo.path));
+    }
+    await request.send().timeout(const Duration(seconds: 30));
+  }
+
+  // --- Objects photos ---
+
+  /// GET /library/objects/{object_id}/photos → {"count": N}
+  Future<int> getObjectPhotoCount(String objectId) async {
+    if (useMock) return 0;
+    final response = await http.get(Uri.parse('$baseUrl/library/objects/$objectId/photos')).timeout(const Duration(seconds: 10));
+    if (response.statusCode == 200) return (jsonDecode(response.body)['photo_count'] as int?) ?? 0;
+    return 0;
+  }
+
+  /// URL for GET /library/objects/{object_id}/photo/{idx} → JPEG image
+  String objectPhotoUrl(String objectId, int index) => '$baseUrl/library/objects/$objectId/photo/$index';
+
+  /// POST /library/objects/{object_id}/photos — add more photos
+  Future<void> addObjectPhotos(String objectId, List<File> photos) async {
+    if (useMock) return;
+    final uri = Uri.parse('$baseUrl/library/objects/$objectId/photos');
+    final request = http.MultipartRequest('POST', uri);
+    for (final photo in photos) {
+      request.files.add(await http.MultipartFile.fromPath('photos', photo.path));
+    }
+    await request.send().timeout(const Duration(seconds: 30));
   }
 
   // ══════════════════════════════════════

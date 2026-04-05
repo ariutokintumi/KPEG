@@ -201,12 +201,19 @@ class CaptureProvider extends ChangeNotifier {
       _gpsData = await _sensors.getLocation();
 
       final metadata = await _buildMetadata();
-      final kpegBytes = await _api.encode(photo!, metadata);
+      final result = await _api.encode(photo!, metadata);
 
       lastSavedFile = await _kpegRepo.save(
-        kpegBytes,
+        result.kpegBytes,
         sceneHint: sceneHint.isNotEmpty ? sceneHint : null,
         originalPhotoPath: photo!.path,
+        imageId: result.imageId,
+        hederaFileId: result.hederaInfo?.fileId,
+        hederaTopicId: result.hederaInfo?.topicId,
+        hederaTopicTxId: result.hederaInfo?.topicTxId,
+        hederaNftTokenId: result.hederaInfo?.nftTokenId,
+        hederaNftSerial: result.hederaInfo?.nftSerial,
+        hederaNetwork: result.hederaInfo?.network,
       );
 
       _lastPhotoTime = DateTime.now();

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
@@ -9,10 +10,13 @@ import 'dart:math';
 import '../config/theme.dart';
 import '../models/place.dart';
 import '../providers/places_provider.dart';
+import '../services/api_service.dart';
 import '../widgets/kpeg_gradient_background.dart';
 
 class PlaceDetailScreen extends StatefulWidget {
-  const PlaceDetailScreen({super.key});
+  final Place? place;
+
+  const PlaceDetailScreen({super.key, this.place});
 
   @override
   State<PlaceDetailScreen> createState() => _PlaceDetailScreenState();
@@ -30,7 +34,15 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
   double? _lastTilt;
 
   static const int _minPhotos = 2;
-  static const int _maxPhotos = 5;
+
+  final _apiService = ApiService();
+
+  // Vista mode
+  int _serverPhotoCount = 0;
+  bool _loadingCount = false;
+  bool _addingPhotos = false;
+
+  bool get _isViewMode => widget.place != null;
 
   @override
   void initState() {
@@ -41,6 +53,12 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
     accelerometerEventStream().listen((e) {
       _lastTilt = atan2(e.y, sqrt(e.x * e.x + e.z * e.z)) * (180 / pi);
     });
+
+    if (_isViewMode) {
+      _nameController.text = widget.place!.name;
+      _descriptionController.text = widget.place!.description ?? '';
+      _loadServerPhotoCount();
+    }
   }
 
   @override
@@ -48,6 +66,19 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
     _nameController.dispose();
     _descriptionController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadServerPhotoCount() async {
+    setState(() => _loadingCount = true);
+    try {
+      final count = await _apiService.getPlacePhotoCount(widget.place!.placeId);
+      if (mounted) setState(() {
+        _serverPhotoCount = count;
+        _loadingCount = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loadingCount = false);
+    }
   }
 
   Future<void> _getLocation() async {
@@ -69,7 +100,6 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
   }
 
   Future<void> _addPhoto(ImageSource source) async {
-    if (_photos.length >= _maxPhotos) return;
     final picker = ImagePicker();
     final xfile = await picker.pickImage(
         source: source, imageQuality: 85, maxWidth: 1200);
@@ -84,7 +114,25 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
       timestamp: DateTime.now().millisecondsSinceEpoch ~/ 1000,
     );
 
-    setState(() => _photos.add((photo: File(xfile.path), meta: meta)));
+    if (_isViewMode) {
+      // En modo vista: enviar directamente al servidor
+      setState(() {
+        _addingPhotos = true;
+        _error = null;
+      });
+      try {
+        await _apiService.addPlacePhotos(widget.place!.placeId, [File(xfile.path)]);
+        await _loadServerPhotoCount();
+        if (mounted) setState(() => _addingPhotos = false);
+      } catch (e) {
+        if (mounted) setState(() {
+          _addingPhotos = false;
+          _error = 'Error adding photo: $e';
+        });
+      }
+    } else {
+      setState(() => _photos.add((photo: File(xfile.path), meta: meta)));
+    }
   }
 
   Future<void> _save() async {
@@ -119,6 +167,15 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isViewMode) return _buildViewMode(context);
+    return _buildCreateMode(context);
+  }
+
+  // ══════════════════════════════════════
+  // CREATE MODE
+  // ══════════════════════════════════════
+
+  Widget _buildCreateMode(BuildContext context) {
     final canSave = _nameController.text.trim().isNotEmpty &&
         _photos.length >= _minPhotos &&
         !_saving;
@@ -165,8 +222,9 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
 
                       const SizedBox(height: 20),
 
+                      // Counter — sin maximo
                       Text(
-                        '${_photos.length}/$_maxPhotos photos (min $_minPhotos)',
+                        '${_photos.length} photos (min $_minPhotos)',
                         style: TextStyle(
                           color: _photos.length >= _minPhotos
                               ? KpegTheme.accent
@@ -186,49 +244,8 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
                       _photoGrid(),
                       const SizedBox(height: 12),
 
-                      if (_photos.length < _maxPhotos)
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: () =>
-                                    _addPhoto(ImageSource.camera),
-                                icon: const Icon(Icons.camera_alt_rounded,
-                                    size: 18),
-                                label: const Text('Camera'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: KpegTheme.accent,
-                                  side: BorderSide(
-                                      color: KpegTheme.accent
-                                          .withValues(alpha: 0.5)),
-                                  shape: RoundedRectangleBorder(
-                                      borderRadius:
-                                          BorderRadius.circular(12)),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: () =>
-                                    _addPhoto(ImageSource.gallery),
-                                icon: const Icon(
-                                    Icons.photo_library_outlined,
-                                    size: 18),
-                                label: const Text('Gallery'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: KpegTheme.accent,
-                                  side: BorderSide(
-                                      color: KpegTheme.accent
-                                          .withValues(alpha: 0.5)),
-                                  shape: RoundedRectangleBorder(
-                                      borderRadius:
-                                          BorderRadius.circular(12)),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                      // Add buttons — sin limite
+                      _addButtons(),
 
                       if (_error != null) ...[
                         const SizedBox(height: 12),
@@ -272,6 +289,288 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  // ══════════════════════════════════════
+  // VIEW/EDIT MODE
+  // ══════════════════════════════════════
+
+  Widget _buildViewMode(BuildContext context) {
+    final place = widget.place!;
+
+    return Scaffold(
+      body: KpegGradientBackground(
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Header con nombre
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                    ),
+                    Expanded(
+                      child: Text(
+                        place.name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (place.lat != null)
+                      Icon(Icons.gps_fixed,
+                          color: KpegTheme.accent.withValues(alpha: 0.6),
+                          size: 18),
+                  ],
+                ),
+              ),
+
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 12),
+
+                      // Info section
+                      _infoSection(place),
+
+                      const SizedBox(height: 24),
+
+                      // Photo count
+                      Row(
+                        children: [
+                          Text(
+                            _loadingCount
+                                ? 'Loading photos...'
+                                : '$_serverPhotoCount photos on server',
+                            style: TextStyle(
+                              color: KpegTheme.accent,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          if (_loadingCount) ...[
+                            const SizedBox(width: 8),
+                            const SizedBox(
+                              width: 12, height: 12,
+                              child: CircularProgressIndicator(strokeWidth: 1.5, color: KpegTheme.accent),
+                            ),
+                          ],
+                        ],
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      // Existing photos from server
+                      if (_serverPhotoCount > 0) _serverPhotoGrid(place),
+
+                      const SizedBox(height: 20),
+
+                      // Add more photos section
+                      Text(
+                        'Add more photos',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.5),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text('Each photo captures location & camera angle automatically',
+                          style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.3),
+                              fontSize: 12)),
+
+                      const SizedBox(height: 12),
+
+                      if (_addingPhotos)
+                        const Padding(
+                          padding: EdgeInsets.only(bottom: 12),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              SizedBox(
+                                  width: 16, height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: KpegTheme.accent)),
+                              SizedBox(width: 8),
+                              Text('Adding photo...', style: TextStyle(color: KpegTheme.accent, fontSize: 13)),
+                            ],
+                          ),
+                        ),
+
+                      if (!_addingPhotos) _addButtons(),
+
+                      if (_error != null) ...[
+                        const SizedBox(height: 12),
+                        Text(_error!,
+                            style: const TextStyle(color: Colors.redAccent, fontSize: 13),
+                            textAlign: TextAlign.center),
+                      ],
+
+                      const SizedBox(height: 24),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _infoSection(Place place) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: KpegTheme.accent.withValues(alpha: 0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Place ID — copiable
+          Row(
+            children: [
+              Text('ID: ',
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12)),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    Clipboard.setData(ClipboardData(text: place.placeId));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Place ID copied'), duration: Duration(seconds: 1)),
+                    );
+                  },
+                  child: Text(
+                    place.placeId,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                      fontFamily: 'monospace',
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+              Icon(Icons.copy_rounded, size: 14, color: Colors.white.withValues(alpha: 0.3)),
+            ],
+          ),
+          if (place.description != null && place.description!.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Description: ${place.description}',
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12),
+            ),
+          ],
+          if (place.lat != null && place.lng != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Coordinates: ${place.lat!.toStringAsFixed(5)}, ${place.lng!.toStringAsFixed(5)}',
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12),
+            ),
+          ],
+          const SizedBox(height: 6),
+          Text(
+            'Created: ${_formatDate(place.createdAt)}',
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Photos: ${place.photoCount}',
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _serverPhotoGrid(Place place) {
+    return SizedBox(
+      height: 100,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: _serverPhotoCount,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (_, index) {
+          final url = _apiService.placePhotoUrl(place.placeId, index);
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.network(
+              url,
+              width: 100,
+              height: 100,
+              fit: BoxFit.cover,
+              loadingBuilder: (_, child, progress) {
+                if (progress == null) return child;
+                return Container(
+                  width: 100, height: 100,
+                  color: Colors.white.withValues(alpha: 0.05),
+                  child: const Center(
+                    child: SizedBox(
+                      width: 20, height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: KpegTheme.accent),
+                    ),
+                  ),
+                );
+              },
+              errorBuilder: (_, __, ___) => Container(
+                width: 100, height: 100,
+                color: Colors.white.withValues(alpha: 0.05),
+                child: Icon(Icons.broken_image_rounded,
+                    color: Colors.white.withValues(alpha: 0.2), size: 28),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // ══════════════════════════════════════
+  // SHARED WIDGETS
+  // ══════════════════════════════════════
+
+  Widget _addButtons() {
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () => _addPhoto(ImageSource.camera),
+            icon: const Icon(Icons.camera_alt_rounded, size: 18),
+            label: const Text('Camera'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: KpegTheme.accent,
+              side: BorderSide(color: KpegTheme.accent.withValues(alpha: 0.5)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () => _addPhoto(ImageSource.gallery),
+            icon: const Icon(Icons.photo_library_outlined, size: 18),
+            label: const Text('Gallery'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: KpegTheme.accent,
+              side: BorderSide(color: KpegTheme.accent.withValues(alpha: 0.5)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -371,5 +670,10 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
         },
       ),
     );
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} '
+        '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 }
