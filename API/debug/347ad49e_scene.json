@@ -1,0 +1,104 @@
+{
+  "v": 1,
+  "s": {
+    "d": "Man in black jacket and jeans standing in front of ETH Global banner at Hall Hakers event space, wearing hacker badge, white sneakers, posing for photo with flowering floral backdrop visible above.",
+    "mood": "casual",
+    "light": {
+      "dir": "above",
+      "type": "artificial",
+      "warmth": "neutral"
+    },
+    "depth": "subject centered, banner above, teal wall and gray tile wall flanking",
+    "style": "documentary event photography"
+  },
+  "o": [
+    {
+      "n": "person",
+      "b": [
+        0.27,
+        0.33,
+        0.36,
+        0.42
+      ],
+      "d": "Man mid-50s, wearing dark sunglasses, gray-brown hair, black jacket over dark shirt, dark jeans with rips, white sneakers, lanyard with hacker badge hanging at chest, relaxed stance with legs extended, neutral expression, posing for event photo.",
+      "ref": "usr_jose_m_63059"
+    },
+    {
+      "n": "rollup",
+      "b": [
+        0.2,
+        0.12,
+        0.8,
+        0.32
+      ],
+      "d": "ETH Global banner with floral botanical border and flowering arrangement graphic, mounted on frame behind subject",
+      "ref": "obj_rollup_28208"
+    },
+    {
+      "n": "gafete de hacker",
+      "b": [
+        0.29,
+        0.48,
+        0.33,
+        0.54
+      ],
+      "d": "Event badge worn on lanyard across chest",
+      "ref": "obj_gafete_de_hacker_26645"
+    }
+  ],
+  "t": [
+    {
+      "text": "ETH Global CANNES",
+      "b": [
+        0.35,
+        0.18,
+        0.65,
+        0.28
+      ],
+      "type": "sign"
+    },
+    {
+      "text": "April 3 - 5, 2025",
+      "b": [
+        0.4,
+        0.25,
+        0.62,
+        0.29
+      ],
+      "type": "sign"
+    }
+  ],
+  "colors": [
+    "#1a1a1a",
+    "#2b7a78",
+    "#e8e8e8",
+    "#8b7355",
+    "#ffd700"
+  ],
+  "p": {
+    "place": "place_hall_hakers_26049",
+    "place_refs": [
+      {
+        "id": "place_hall_hakers_26049_p13",
+        "hint": "facing 11deg, tilt 37deg"
+      }
+    ]
+  },
+  "m": {
+    "ts": 1775357328,
+    "tz": "Europe/Paris",
+    "loc": [
+      43.5498134,
+      7.0179807
+    ],
+    "compass": -1.0938535149170727,
+    "tilt": 39.57457940511292,
+    "dev": "SM-S921B"
+  },
+  "c": {
+    "fl": 4.7,
+    "ap": 1.8,
+    "zm": 1.0
+  },
+  "sid": "sess_20260405_0400"
+}

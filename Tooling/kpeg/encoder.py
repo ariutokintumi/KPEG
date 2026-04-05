@@ -23,6 +23,7 @@ from .palette import extract_custom_palette, build_full_palette
 from .bitmap import (
     generate_grid,
     extract_keypoints,
+    extract_edge_map,
     pack_bitmap,
     compute_bitmap_size,
     MAX_KEYPOINTS,
@@ -316,14 +317,17 @@ def encode(
     keypoints = []
     if kp_count > 0:
         keypoints = extract_keypoints(image_rgb, full_palette, max_count=kp_count)
-    bitmap_data = pack_bitmap(custom_palette, grid, keypoints)
+
+    # Edge map: 32x32 binary = 128 bytes + 1 byte header = 129 bytes
+    edge_map = extract_edge_map(image_rgb)
+    bitmap_data = pack_bitmap(custom_palette, grid, keypoints, edge_map=edge_map)
     total = compute_total_size(len(bitmap_data), len(compressed_json))
 
     # 8. Drop keypoints if we overshot max (safety net)
     while total > max_size and keypoints:
         drop = max(1, len(keypoints) // 10)
         keypoints = keypoints[:-drop]
-        bitmap_data = pack_bitmap(custom_palette, grid, keypoints)
+        bitmap_data = pack_bitmap(custom_palette, grid, keypoints, edge_map=edge_map)
         total = compute_total_size(len(bitmap_data), len(compressed_json))
 
     # 9. Flags + aspect ratio

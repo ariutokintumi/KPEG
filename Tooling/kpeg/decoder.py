@@ -21,7 +21,7 @@ from PIL import Image
 
 from .format import unpack_kpeg, KPEGFile
 from .compression import decompress_json
-from .bitmap import unpack_bitmap, render_bitmap
+from .bitmap import unpack_bitmap, unpack_bitmap_full, render_bitmap
 from .image_generator import generate_image, stub_generate, build_prompt
 from .library_reader import (
     get_object_photos,
@@ -197,13 +197,13 @@ def decode(
     # 1-2. Unpack + decompress
     kpeg, scene = _parse_kpeg(kpeg_bytes)
 
-    # 3. Unpack bitmap
-    custom_palette, grid, keypoints = unpack_bitmap(kpeg.bitmap_data)
+    # 3. Unpack bitmap (including edge map if present)
+    custom_palette, grid, keypoints, edge_map = unpack_bitmap_full(kpeg.bitmap_data)
 
-    # 4. Render color guide
+    # 4. Render color + edge guide
     out_w, out_h = _compute_output_size(kpeg.aspect_w, kpeg.aspect_h, max_output_dim)
     guide_size = min(512, max(out_w, out_h))
-    guide = render_bitmap(custom_palette, grid, keypoints, width=guide_size, height=guide_size)
+    guide = render_bitmap(custom_palette, grid, keypoints, width=guide_size, height=guide_size, edge_map=edge_map)
 
     # 5. Resolve library refs — categorized for multi-pass Stage 2
     metadata = scene.get("m") or {}

@@ -1,4 +1,4 @@
-"""Adaptive-density bitmap for KPEG: grid + Sobel-weighted keypoints.
+"""Adaptive-density bitmap for KPEG: grid + Sobel-weighted keypoints + edge map.
 
 Structure (packed bytes):
   48 bytes   Custom palette (16 RGB triplets)
@@ -6,12 +6,15 @@ Structure (packed bytes):
   N*N bytes  Grid: dominant palette index per cell
   2 bytes    Keypoint count K (uint16 LE, 0-65535)
   3*K bytes  Keypoints: (x_255, y_255, palette_index) per keypoint
+  [optional, added v2]:
+  1 byte     Edge map dimension E (typically 32)
+  E*E/8 bytes  Edge map: 1-bit per pixel, packed as bitfield (Canny edges)
 
 Design rationale:
   - Grid gives baseline spatial color layout (~65 bytes for 8x8)
   - Keypoints add detail at high-gradient locations (edges, faces, text)
-  - Combined, these form a structural color guide FLUX can use during reconstruction
-  - Adaptive: bitmap size scales with keypoint count, balancing against JSON budget
+  - Edge map (128 bytes for 32x32) tells FLUX WHERE object boundaries are
+  - Combined: colors + structure + edges = comprehensive spatial guide
 """
 import numpy as np
 from PIL import Image
@@ -26,8 +29,11 @@ from .palette import (
 )
 
 DEFAULT_GRID_SIZE = 8
-# 48 (palette) + 1 (grid_size) + 64 (8x8 grid) + 2 (kp_count) + 3*461 = 1498B → fits 1500B target
-MAX_KEYPOINTS = 461
+DEFAULT_EDGE_SIZE = 32  # 32x32 = 128 bytes como bitfield
+# 48 (palette) + 1 (grid_size) + 64 (8x8 grid) + 2 (kp_count) + 3*K keypoints + 1 (edge_size) + 128 (edge map)
+# Con 80 keypoints: 48 + 1 + 64 + 2 + 240 + 1 + 128 = 484 bytes
+# Con MAX keypoints ajustado: ~1500B target
+MAX_KEYPOINTS = 420  # reducido para dejar espacio al edge map
 
 
 def generate_grid(
@@ -108,12 +114,54 @@ def extract_keypoints(
     ]
 
 
+def extract_edge_map(
+    image: Image.Image,
+    edge_size: int = DEFAULT_EDGE_SIZE,
+    canny_sigma: float = 1.5,
+    threshold_ratio: float = 0.3,
+) -> bytes:
+    """Extract binary edge map from image.
+
+    Returns packed bitfield of edge_size x edge_size (1 bit per pixel).
+    32x32 = 128 bytes. Marks object boundaries, siluetas, bordes de muebles, etc.
+    """
+    img_small = image.convert("L").resize((edge_size, edge_size), Image.Resampling.LANCZOS)
+    arr = np.array(img_small, dtype=np.float64)
+
+    # Sobel edge detection (simulating Canny without OpenCV)
+    if canny_sigma > 0:
+        arr = ndimage.gaussian_filter(arr, sigma=canny_sigma)
+    gx = ndimage.sobel(arr, axis=1)
+    gy = ndimage.sobel(arr, axis=0)
+    magnitude = np.sqrt(gx ** 2 + gy ** 2)
+
+    # Threshold: top percentage of gradients
+    threshold = magnitude.max() * threshold_ratio
+    edges = (magnitude > threshold).astype(np.uint8)
+
+    # Pack as bitfield (8 pixels per byte, row-major)
+    flat = edges.flatten()
+    # Pad to multiple of 8
+    padded = np.pad(flat, (0, (8 - len(flat) % 8) % 8))
+    packed = np.packbits(padded)
+    return bytes(packed)
+
+
+def unpack_edge_map(data: bytes, edge_size: int) -> np.ndarray:
+    """Unpack bitfield edge map back to 2D binary array."""
+    bits = np.unpackbits(np.frombuffer(data, dtype=np.uint8))
+    total = edge_size * edge_size
+    return bits[:total].reshape(edge_size, edge_size)
+
+
 def pack_bitmap(
     custom_palette: np.ndarray,
     grid: np.ndarray,
     keypoints: list[tuple[int, int, int]],
+    edge_map: bytes = b"",
+    edge_size: int = DEFAULT_EDGE_SIZE,
 ) -> bytes:
-    """Serialize custom palette + grid + keypoints into compact bytes."""
+    """Serialize custom palette + grid + keypoints + optional edge map."""
     grid_size = grid.shape[0]
     if grid.shape != (grid_size, grid_size):
         raise ValueError(f"Grid must be square, got {grid.shape}")
@@ -126,7 +174,7 @@ def pack_bitmap(
     out.extend(encode_custom_palette(custom_palette))  # 48 bytes
     out.append(grid_size)
     out.extend(grid.astype(np.uint8).tobytes())
-    # Keypoint count as uint16 LE (allows >255 keypoints for richer color guides)
+    # Keypoint count as uint16 LE
     kp_count = len(keypoints)
     out.append(kp_count & 0xFF)
     out.append((kp_count >> 8) & 0xFF)
@@ -134,11 +182,27 @@ def pack_bitmap(
         out.append(x & 0xFF)
         out.append(y & 0xFF)
         out.append(idx & 0xFF)
+
+    # Edge map (optional section — backward compatible)
+    if edge_map:
+        out.append(edge_size)
+        out.extend(edge_map)
+
     return bytes(out)
 
 
 def unpack_bitmap(data: bytes) -> tuple[np.ndarray, np.ndarray, list[tuple[int, int, int]]]:
-    """Parse bitmap bytes back into (custom_palette, grid, keypoints)."""
+    """Parse bitmap bytes back into (custom_palette, grid, keypoints).
+
+    Also extracts edge map if present (backward compatible — old files return None).
+    Edge map accessible via unpack_bitmap_full().
+    """
+    result = unpack_bitmap_full(data)
+    return result[0], result[1], result[2]
+
+
+def unpack_bitmap_full(data: bytes) -> tuple[np.ndarray, np.ndarray, list[tuple[int, int, int]], np.ndarray | None]:
+    """Parse bitmap bytes → (custom_palette, grid, keypoints, edge_map_or_None)."""
     if len(data) < CUSTOM_PALETTE_BYTES + 2:
         raise ValueError(f"Bitmap too short: {len(data)} bytes")
 
@@ -167,8 +231,18 @@ def unpack_bitmap(data: bytes) -> tuple[np.ndarray, np.ndarray, list[tuple[int, 
         y = data[offset + i * 3 + 1]
         idx = data[offset + i * 3 + 2]
         keypoints.append((x, y, idx))
+    offset += kp_count * 3
 
-    return custom_palette, grid, keypoints
+    # Edge map (optional — backward compatible)
+    edge_map = None
+    if offset < len(data):
+        edge_size = data[offset]
+        offset += 1
+        edge_bytes = (edge_size * edge_size + 7) // 8
+        if offset + edge_bytes <= len(data):
+            edge_map = unpack_edge_map(data[offset:offset + edge_bytes], edge_size)
+
+    return custom_palette, grid, keypoints, edge_map
 
 
 def compute_bitmap_size(grid_size: int, num_keypoints: int) -> int:
@@ -182,10 +256,13 @@ def render_bitmap(
     keypoints: list[tuple[int, int, int]],
     width: int = 512,
     height: int = 512,
+    edge_map: np.ndarray | None = None,
 ) -> Image.Image:
-    """Render bitmap into a PIL image (upscaled grid + keypoint dots).
+    """Render bitmap into a PIL image (upscaled grid + keypoint dots + edge overlay).
 
     Used by the decoder to produce a color/structure guide image for FLUX.
+    Edge overlay draws white lines where object boundaries are, giving FLUX
+    spatial structure information alongside the color layout.
     """
     full_palette = build_full_palette(custom_palette)
     grid_size = grid.shape[0]
@@ -208,5 +285,18 @@ def render_bitmap(
         y0 = max(0, cy - dot_radius)
         y1 = min(height, cy + dot_radius + 1)
         arr[y0:y1, x0:x1] = color
+
+    # Overlay edge map as semi-transparent white lines
+    if edge_map is not None:
+        edge_h, edge_w = edge_map.shape
+        # Upscale edge map to output size
+        edge_upscaled = np.array(
+            Image.fromarray((edge_map * 255).astype(np.uint8)).resize(
+                (width, height), Image.Resampling.NEAREST
+            )
+        )
+        # Blend edges as white with 60% opacity where edges exist
+        edge_mask = edge_upscaled > 128
+        arr[edge_mask] = (arr[edge_mask] * 0.4 + np.array([255, 255, 255]) * 0.6).astype(np.uint8)
 
     return Image.fromarray(arr)

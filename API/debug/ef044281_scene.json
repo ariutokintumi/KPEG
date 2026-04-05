@@ -1,0 +1,94 @@
+{
+  "v": 1,
+  "s": {
+    "d": "Two men at an indoor event space wearing lanyards, one in navy blazer gesturing toward camera setup and monitors, the other in gray shirt seated in hammock chair, tropical plants and tech equipment visible in background.",
+    "mood": "casual",
+    "light": {
+      "dir": "above",
+      "type": "artificial",
+      "warmth": "neutral"
+    },
+    "depth": "fg: seated man in hammock; mg: standing man with lanyard; bg: monitoring stations, plants, event setup",
+    "style": "documentary event photography"
+  },
+  "o": [
+    {
+      "n": "person",
+      "b": [
+        0.36,
+        0.32,
+        0.46,
+        0.39
+      ],
+      "d": "Jose M, mid-50s, glasses, gray t-shirt with white badge, seated in wooden hammock chair, relaxed posture, facing camera",
+      "ref": "usr_jose_m_63059"
+    },
+    {
+      "n": "person",
+      "b": [
+        0.56,
+        0.4,
+        0.65,
+        0.47
+      ],
+      "d": "Jistro, mid-50s, glasses, navy blazer, blue lanyard with credential, gesturing toward tech setup, standing upright, engaged expression",
+      "ref": "usr_jistro_30917"
+    },
+    {
+      "n": "amaca",
+      "b": [
+        0.28,
+        0.3,
+        0.52,
+        0.55
+      ],
+      "d": "wooden-frame hammock chair with cream fabric, occupied by seated man",
+      "ref": "obj_amaca_14625"
+    },
+    {
+      "n": "palmera",
+      "b": [
+        0.0,
+        0.15,
+        0.15,
+        0.55
+      ],
+      "d": "green tropical plant in left background",
+      "ref": "obj_palmera_92652"
+    },
+    {
+      "n": "monitor setup",
+      "b": [
+        0.0,
+        0.0,
+        0.5,
+        0.3
+      ],
+      "d": "event monitoring stations with screens and broadcasting equipment"
+    }
+  ],
+  "colors": [
+    "#2B5A7B",
+    "#7DDCC4",
+    "#666666",
+    "#CCCCCC",
+    "#E8E8E8"
+  ],
+  "m": {
+    "ts": 1775357861,
+    "tz": "Europe/Paris",
+    "loc": [
+      43.549703,
+      7.0178543
+    ],
+    "compass": -165.128811714006,
+    "tilt": 47.73589481787275,
+    "dev": "SM-S921B"
+  },
+  "c": {
+    "fl": 4.7,
+    "ap": 1.8,
+    "zm": 1.0
+  },
+  "sid": "sess_20260405_0400"
+}

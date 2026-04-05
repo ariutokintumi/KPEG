@@ -1,0 +1,157 @@
+{
+  "v": 1,
+  "s": {
+    "d": "Man in white cap and navy hacker t-shirt sitting on a black stool in Hall Hackers event space, wearing a hacker badge lanyard, smiling at camera with one leg raised, surrounded by tropical plants, green umbrellas, red hammock, and event furniture.",
+    "mood": "casual",
+    "light": {
+      "dir": "above",
+      "type": "artificial",
+      "warmth": "neutral"
+    },
+    "depth": "man in foreground on turquoise stripe, plants and hammock in mid/background, event space recedes to beige walls",
+    "style": "documentary event photography"
+  },
+  "o": [
+    {
+      "n": "person",
+      "b": [
+        0.25,
+        0.15,
+        0.55,
+        0.75
+      ],
+      "d": "man mid-30s, white baseball cap, short dark beard, smiling, navy t-shirt with white logo, white hacker badge on lanyard, blue jeans, white sneakers, sitting on black stool with left leg raised, relaxed and playful pose",
+      "ref": "usr_german_9292"
+    },
+    {
+      "n": "silla",
+      "b": [
+        0.23,
+        0.5,
+        0.35,
+        0.72
+      ],
+      "d": "black metal stool supporting seated man",
+      "ref": "obj_silla_34421"
+    },
+    {
+      "n": "silla",
+      "b": [
+        0.52,
+        0.55,
+        0.62,
+        0.75
+      ],
+      "d": "black metal chair with gray cushion, empty",
+      "ref": "obj_silla_2884"
+    },
+    {
+      "n": "palmera",
+      "b": [
+        0.02,
+        0.15,
+        0.22,
+        0.65
+      ],
+      "d": "potted tropical palm plant in wooden planter, left foreground",
+      "ref": "obj_palmera_92652"
+    },
+    {
+      "n": "sombrilla",
+      "b": [
+        0.35,
+        0.05,
+        0.48,
+        0.25
+      ],
+      "d": "green dome umbrella, suspended over event space",
+      "ref": "obj_sombrilla_52180"
+    },
+    {
+      "n": "sombrilla",
+      "b": [
+        0.48,
+        0.08,
+        0.62,
+        0.28
+      ],
+      "d": "green dome umbrella, suspended over event space",
+      "ref": "obj_sombrilla_52180"
+    },
+    {
+      "n": "amaca",
+      "b": [
+        0.55,
+        0.3,
+        0.8,
+        0.55
+      ],
+      "d": "red fabric hammock with dark frame in mid-background",
+      "ref": "obj_amaca_14625"
+    },
+    {
+      "n": "planta",
+      "b": [
+        0.6,
+        0.15,
+        0.75,
+        0.45
+      ],
+      "d": "potted tropical plant in background near hammock",
+      "ref": "obj_planta_30099"
+    }
+  ],
+  "t": [
+    {
+      "text": "H-2",
+      "b": [
+        0.88,
+        0.02,
+        0.98,
+        0.08
+      ],
+      "type": "sign"
+    }
+  ],
+  "colors": [
+    "#1a6b5c",
+    "#2b3e50",
+    "#f5f5f5",
+    "#88b89c",
+    "#d4a574"
+  ],
+  "p": {
+    "place": "place_hall_hakers_26049",
+    "place_refs": [
+      {
+        "id": "place_hall_hakers_26049_p14",
+        "hint": "facing -68deg, tilt 41deg"
+      },
+      {
+        "id": "place_hall_hakers_26049_p16",
+        "hint": "facing -62deg, tilt 40deg"
+      },
+      {
+        "id": "place_hall_hakers_26049_p15",
+        "hint": "facing -56deg, tilt 31deg"
+      }
+    ]
+  },
+  "m": {
+    "ts": 1775357589,
+    "tz": "Europe/Paris",
+    "loc": [
+      43.5497083,
+      7.0179077
+    ],
+    "compass": -77.90886695645226,
+    "tilt": 40.36614796889759,
+    "dev": "SM-S921B"
+  },
+  "c": {
+    "fl": 4.7,
+    "ap": 1.8,
+    "zm": 1.0
+  },
+  "sid": "sess_20260405_0400"
+}

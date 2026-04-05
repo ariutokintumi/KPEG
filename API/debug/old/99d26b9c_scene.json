@@ -1,0 +1,158 @@
+{
+  "v": 1,
+  "s": {
+    "d": "Man wearing navy hackathon badge sitting on black chair in large indoor event hall, leg extended playfully, smiling at camera. Tropical plants, hammocks, and beach-themed decor fill Hall Hakers venue behind him; grid ceiling with recessed lights overhead.",
+    "mood": "casual",
+    "light": {
+      "dir": "above",
+      "type": "artificial",
+      "warmth": "neutral"
+    },
+    "depth": "subject in foreground on turquoise floor section, hammocks and plants mid-ground, registration desk and exits background",
+    "style": "documentary event photography"
+  },
+  "o": [
+    {
+      "n": "person",
+      "b": [
+        0.33,
+        0.35,
+        0.55,
+        0.75
+      ],
+      "d": "Man mid-30s with dark hair and facial hair, navy polo shirt with white hackathon badge, blue jeans, white sneakers, sitting on black chair with left leg extended, relaxed posture, smiling directly at camera",
+      "ref": "usr_german_48869"
+    },
+    {
+      "n": "silla",
+      "b": [
+        0.32,
+        0.55,
+        0.45,
+        0.7
+      ],
+      "d": "black wooden chair with person sitting on it",
+      "ref": "obj_silla_34421"
+    },
+    {
+      "n": "silla",
+      "b": [
+        0.5,
+        0.6,
+        0.62,
+        0.75
+      ],
+      "d": "black wooden chair, empty, right of main subject",
+      "ref": "obj_silla_2884"
+    },
+    {
+      "n": "amaca",
+      "b": [
+        0.25,
+        0.3,
+        0.5,
+        0.5
+      ],
+      "d": "red and maroon hammock strung between support structure",
+      "ref": "obj_amaca_14625"
+    },
+    {
+      "n": "palmera",
+      "b": [
+        0.08,
+        0.2,
+        0.25,
+        0.6
+      ],
+      "d": "tall tropical palm plant in wooden planter, left side",
+      "ref": "obj_palmera_92652"
+    },
+    {
+      "n": "sombrilla",
+      "b": [
+        0.15,
+        0.15,
+        0.35,
+        0.35
+      ],
+      "d": "dark green beach umbrella with straw fringe",
+      "ref": "obj_sombrilla_52180"
+    },
+    {
+      "n": "planta",
+      "b": [
+        0.55,
+        0.35,
+        0.7,
+        0.55
+      ],
+      "d": "potted tropical plant in background",
+      "ref": "obj_planta_30099"
+    },
+    {
+      "n": "gafete de hacker",
+      "b": [
+        0.37,
+        0.38,
+        0.43,
+        0.45
+      ],
+      "d": "white credential badge worn by person",
+      "ref": "obj_gafete_de_hacker_26645"
+    }
+  ],
+  "t": [
+    {
+      "text": "H-3",
+      "b": [
+        0.88,
+        0.02,
+        0.95,
+        0.06
+      ],
+      "type": "sign"
+    }
+  ],
+  "colors": [
+    "#1a1a1a",
+    "#2d5f6e",
+    "#ffffff",
+    "#7d7d7d",
+    "#c41e3a"
+  ],
+  "p": {
+    "place": "place_hall_hakers_26049",
+    "indoor": "german sentado ",
+    "place_refs": [
+      {
+        "id": "place_hall_hakers_26049_p14",
+        "hint": "facing -68deg, tilt 41deg"
+      },
+      {
+        "id": "place_hall_hakers_26049_p16",
+        "hint": "facing -62deg, tilt 40deg"
+      }
+    ]
+  },
+  "m": {
+    "ts": 1775355571,
+    "tz": "Europe/Paris",
+    "loc": [
+      43.5497038,
+      7.0179101
+    ],
+    "compass": -85.7230951405671,
+    "tilt": 42.54743959212493,
+    "dev": "SM-S921B"
+  },
+  "c": {
+    "fl": 4.7,
+    "ap": 1.8,
+    "zm": 1.0
+  },
+  "hint": "sentado ",
+  "tags": [
+    "hackathon"
+  ],
+  "sid": "sess_20260405_0400"
+}

@@ -286,27 +286,40 @@ def stage2_refine(
     return _extract_image_from_result(result)
 
 
-def face_swap(
-    image: Image.Image,
+_PULID_MODEL = "fal-ai/flux-pulid"
+
+
+def pulid_generate(
+    prompt: str,
     face_url: str,
+    width: int = 1024,
+    height: int = 1024,
+    id_weight: float = 1.0,
     submit: Optional[Callable[[str, dict], dict]] = None,
 ) -> Image.Image:
-    """Swap the face in image with the reference face photo.
+    """Generate image with embedded face identity via PuLID FLUX.
 
-    Uses a dedicated face-swap model (NOT Kontext) for precise identity.
-    Much more reliable than asking a general model to "apply this face".
+    PuLID inyecta la identidad facial DENTRO de la generación, no como
+    post-proceso. Mucho más fiable que face-swap para preservar identidad.
     """
     submit = submit or _default_submit
     args = {
-        "base_image_url": _image_to_data_url(image, fmt="PNG"),
-        "swap_image_url": face_url,
+        "prompt": prompt,
+        "reference_image_url": face_url,
+        "image_size": {"width": width, "height": height},
+        "id_weight": id_weight,
+        "num_inference_steps": 28,
+        "guidance_scale": 4,
+        "enable_safety_checker": False,
+        "max_sequence_length": "256",
     }
     try:
-        result = submit("fal-ai/face-swap", args)
+        result = submit(_PULID_MODEL, args)
         return _extract_image_from_result(result)
     except Exception as e:
-        print(f"  Face-swap failed: {e}")
-        return image  # devolver imagen sin cambio si falla
+        print(f"  ⚠️ PuLID face generation failed: {e}")
+        # Fallback: generar sin identidad facial
+        return stub_generate(prompt, Image.new("RGB", (width, height)), width, height)
 
 
 def upscale(
@@ -367,24 +380,42 @@ def generate_image(
     if submit is None and not FAL_KEY:
         return stub_generate(prompt, guide_image, width=width, height=height)
 
-    # Stage 1
+    # Extraer caras si hay refs categorizadas
+    face_urls = []
+    face_people = []
+    if categorized_refs:
+        face_urls = categorized_refs.get("face_urls", [])
+        face_people = categorized_refs.get("face_people", [])
+
+    # Stage 1: con identidad facial (PuLID) o sin ella (FLUX estándar)
     tier = _STAGE1_MODELS[quality]
-    base = stage1_generate(
-        prompt, guide_image,
-        model=tier["model"],
-        model_type=tier["type"],
-        width=width, height=height,
-        submit=submit,
-    )
+    if face_urls and face_people and quality != "fast":
+        # PuLID FLUX: genera la imagen CON la cara del sujeto principal embebida
+        person_desc = face_people[0].get("description", "")
+        pulid_prompt = f"{prompt} The main subject is {person_desc}."
+        print(f"  Stage 1: PuLID ({face_people[0]['ref']}) + prompt")
+        base = pulid_generate(
+            pulid_prompt, face_urls[0],
+            width=width, height=height,
+            id_weight=0.95,
+            submit=submit,
+        )
+    else:
+        # FLUX estándar (sin cara o fast tier)
+        base = stage1_generate(
+            prompt, guide_image,
+            model=tier["model"],
+            model_type=tier["type"],
+            width=width, height=height,
+            submit=submit,
+        )
 
     # Stage 2 — skip entirely for fast tier
     if quality == "fast":
         return base
 
     if categorized_refs is not None:
-        # ── Multi-pass Stage 2 ──
-
-        # Stage 2A: Scene + objects refinement (Kontext)
+        # ── Stage 2: Scene + objects refinement (Kontext) ──
         scene_urls = []
         bitmap_url = categorized_refs.get("bitmap_url")
         if bitmap_url:
@@ -396,35 +427,17 @@ def generate_image(
             obj_descriptions = categorized_refs.get("object_descriptions", [])
             scene_prompt = (
                 "Refine the background and objects to match the reference images. "
-                "The first reference is the color/composition guide. "
+                "The first reference is the color/composition guide for spatial layout. "
             )
             if categorized_refs.get("place_urls"):
-                scene_prompt += "The venue/background photos show the exact location — match the architecture, furniture layout, and atmosphere. "
+                scene_prompt += "The venue photos show the exact location — match architecture, furniture, and atmosphere. "
             if obj_descriptions:
                 scene_prompt += "These specific objects must appear: " + ", ".join(obj_descriptions) + ". "
-            scene_prompt += "Keep the people and their poses exactly as they are."
+            scene_prompt += "IMPORTANT: Keep the people, their faces, and their poses EXACTLY as they are. Do NOT change any faces."
             base = stage2_refine(base, scene_prompt, scene_urls, submit=submit)
 
-        # Stage 2B: Face swap (dedicated model — NOT Kontext)
-        # Usa modelo de face-swap especializado para cada persona.
-        # Mucho más fiable que pedirle a un modelo general que "aplique una cara".
-        face_urls = categorized_refs.get("face_urls", [])
-        face_people = categorized_refs.get("face_people", [])
-        if face_urls and face_people:
-            # Usar la primera selfie de cada persona para face-swap
-            for fp in face_people:
-                # Tomar la primera selfie de esta persona (la más frontal suele ser la primera)
-                idx_start = 0
-                for prev_fp in face_people:
-                    if prev_fp is fp:
-                        break
-                    idx_start += prev_fp["url_count"]
-                if idx_start < len(face_urls):
-                    print(f"  Face-swap: applying {fp['ref']} face...")
-                    base = face_swap(base, face_urls[idx_start], submit=submit)
-
     elif reference_urls:
-        # ── Legacy single-pass Stage 2 (backward compat) ──
+        # ── Legacy single-pass (backward compat) ──
         person_prompt = build_person_prompt(scene)
         refine_prompt = prompt
         if person_prompt:

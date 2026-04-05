@@ -64,18 +64,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 1. User taps a `.kpeg` file in the gallery (shows local thumbnail)
 2. App sends it to **`POST /decode`** with quality param (fast/balanced/high)
 3. Backend pipeline:
-   - **Stage 1**: FLUX generates base image from prompt + bitmap (i2i for balanced, t2i for fast/high)
-   - **Stage 2A** (balanced/high): Kontext refines scene with place + object references
-   - **Stage 2B** (balanced/high): Dedicated face-swap model (`fal-ai/face-swap`) applies exact face identity per person
+   - **Stage 1**: PuLID FLUX generates image WITH face identity embedded (if people detected), or standard FLUX (if no people/fast tier). Bitmap with edge map used as guide.
+   - **Stage 2** (balanced/high): Kontext refines scene with place + object references. Prompt says "keep faces unchanged."
    - **Stage 3** (high only): Clarity upscaler 2x
 4. App displays the result
 
 ### Decode Quality Tiers
-| Tier | Stage 1 | Stage 2A (Scene) | Stage 2B (Face) | Stage 3 | Time |
-|------|---------|-----------------|-----------------|---------|------|
-| fast | FLUX Schnell (t2i) | skip | skip | skip | ~2s |
-| balanced | FLUX Dev (i2i, bitmap guide) | Kontext + refs | face-swap | skip | ~15s |
-| high | FLUX Pro 1.1 (t2i) | Kontext + refs | face-swap | Clarity 2x | ~25s |
+| Tier | Stage 1 | Stage 2 (Scene+Objects) | Stage 3 | Time |
+|------|---------|------------------------|---------|------|
+| fast | FLUX Schnell (t2i, no face) | skip | skip | ~2s |
+| balanced | PuLID FLUX (face embedded) | Kontext + place/object refs | skip | ~15s |
+| high | PuLID FLUX (face embedded) | Kontext + place/object refs | Clarity 2x | ~25s |
 
 ## Repository Layout
 
@@ -326,10 +325,11 @@ The `AndroidManifest.xml` must include:
 - **API JSON field names:** Server returns `selfie_count` (people) and `photo_count` (places/objects) — not `count`. Flutter `fromApiJson()` factories must read `photo_count` to populate `photoCount` or the network thumbnail fallback won't trigger.
 - **App connects to real API** — `AppConfig.useMock = false`. Backend must be running.
 - **API URL config:** `AppConfig.apiBaseUrl` — use `10.0.2.2:8000` for emulator, PC's WiFi IP for physical device.
-- **Encode/decode are REAL AI** — encode uses Claude Vision (scene analysis) + bitmap + Brotli compression. Decode uses multi-pass FLUX (scene generation → Kontext scene refinement → face-swap → optional upscale).
-- **Face-swap is a dedicated model** — do NOT use Kontext for face identity. Use `fal-ai/face-swap` after scene generation. Kontext cannot reliably apply faces from reference images.
+- **Encode/decode are REAL AI** — encode uses Claude Vision (scene analysis) + bitmap with edge map + Brotli compression. Decode uses PuLID FLUX (face identity in generation) → Kontext (scene/objects) → optional upscale.
+- **Face identity via PuLID FLUX** — do NOT use `fal-ai/face-swap` (model removed/deprecated, gives 404). Use `fal-ai/flux-pulid` in Stage 1 to embed face identity DURING generation. `id_weight=0.95`, `enable_safety_checker=False`. Kontext Stage 2 must NOT modify faces.
 - **Place photo selection is strict** — `select_best_place_refs()` picks 1 best match by compass/tilt angle, only adds more if within 30° of best. Photos with NULL compass get penalized (distance 999).
 - **Bounding boxes in prompts** — `build_prompt()` translates bbox coordinates to spatial positions ("on the left", "center", "right top") for both people and objects.
+- **Bitmap includes edge map** — 32x32 binary edge map (128 bytes, Sobel thresholded) appended after keypoints. Rendered as white overlay on color grid. Gives FLUX spatial boundary info (WHERE objects are, not just colors). Backward compatible — old .kpeg files without edges still decode fine.
 - **Debug decode** — `cd API && python3 debug_decode.py [kpeg_file]` simulates decode without calling AI, saves all prompts + reference files to `debug/` for inspection.
 - **Debug encode** — each `/encode` call saves input image, metadata JSON, output .kpeg, extracted bitmap, and scene JSON to `API/debug/`.
 

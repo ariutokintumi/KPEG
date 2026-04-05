@@ -1,0 +1,117 @@
+{
+  "v": 1,
+  "s": {
+    "d": "Man in black jacket and jeans standing in modern indoor event space, holding a red object, surrounded by potted plants, wooden furniture, and cleaning equipment on beige flooring.",
+    "mood": "casual",
+    "light": {
+      "dir": "above",
+      "type": "artificial",
+      "warmth": "neutral"
+    },
+    "depth": "man center, plants and furniture bg, cleaning tool fg left",
+    "style": "documentary photography"
+  },
+  "o": [
+    {
+      "n": "person",
+      "b": [
+        0.35,
+        0.25,
+        0.65,
+        0.85
+      ],
+      "d": "Man mid-30s, dark hair, stubble, black jacket over white shirt with lanyard badge, jeans, white sneakers, smiling at camera, holding red object in right hand, standing relaxed pose",
+      "ref": "usr_pablo_55223"
+    },
+    {
+      "n": "palmera",
+      "b": [
+        0.55,
+        0.0,
+        0.75,
+        0.35
+      ],
+      "d": "Potted palm plant with green fronds in white pot",
+      "ref": "obj_palmera_92652"
+    },
+    {
+      "n": "planta",
+      "b": [
+        0.75,
+        0.1,
+        0.95,
+        0.3
+      ],
+      "d": "Spherical topiary potted plant, artificial green",
+      "ref": "obj_planta_30099"
+    },
+    {
+      "n": "mesita",
+      "b": [
+        0.65,
+        0.2,
+        0.85,
+        0.4
+      ],
+      "d": "Wooden side table with shelf",
+      "ref": "obj_mesita_19161"
+    },
+    {
+      "n": "limpieza",
+      "b": [
+        0.0,
+        0.55,
+        0.25,
+        0.95
+      ],
+      "d": "Cleaning mop with handle, stacked textured cloth material",
+      "ref": "obj_limpieza_26465"
+    },
+    {
+      "n": "papelera",
+      "b": [
+        0.2,
+        0.65,
+        0.4,
+        0.95
+      ],
+      "d": "White cylindrical trash bin or decorative container",
+      "ref": "obj_papelera_52259"
+    },
+    {
+      "n": "amaca",
+      "b": [
+        0.0,
+        0.0,
+        0.35,
+        0.55
+      ],
+      "d": "Woven hammock or seating with natural texture",
+      "ref": "obj_amaca_14625"
+    }
+  ],
+  "colors": [
+    "#E8E8E8",
+    "#1A1A1A",
+    "#6B9BD1",
+    "#C9B89A",
+    "#4A9D6F"
+  ],
+  "m": {
+    "ts": 1775358105,
+    "tz": "Europe/Paris",
+    "loc": [
+      43.54968,
+      7.0179
+    ],
+    "compass": -171.24808747444715,
+    "tilt": 62.575613140706636,
+    "dev": "SM-S921B"
+  },
+  "c": {
+    "fl": 4.7,
+    "ap": 1.8,
+    "zm": 1.0
+  },
+  "sid": "sess_20260405_0400"
+}

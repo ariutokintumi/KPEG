@@ -1,0 +1,102 @@
+{
+  "v": 1,
+  "s": {
+    "d": "Man in black blazer and blue hacker badge striking a playful pose with arms outstretched on bright turquoise floor at Hall Hakers event space, mesh wall and white columns in background, industrial venue setup with tables and equipment visible.",
+    "mood": "casual",
+    "light": {
+      "dir": "above",
+      "type": "artificial",
+      "warmth": "neutral"
+    },
+    "depth": "subject centered on turquoise floor, white structural elements and mesh wall receding in background",
+    "style": "documentary event photography"
+  },
+  "o": [
+    {
+      "n": "person",
+      "b": [
+        0.3,
+        0.15,
+        0.7,
+        0.85
+      ],
+      "d": "Man mid-50s, short gray hair, smiling, wearing black blazer over white shirt, blue hacker badge on lanyard, jeans, white sneakers, arms extended wide in playful pose, standing on turquoise floor",
+      "ref": "usr_jose_m_95920"
+    },
+    {
+      "n": "columna",
+      "b": [
+        0.05,
+        0.2,
+        0.15,
+        0.9
+      ],
+      "d": "white structural column on left side of frame",
+      "ref": "obj_columna_5151"
+    },
+    {
+      "n": "techo",
+      "b": [
+        0.0,
+        0.0,
+        1.0,
+        0.15
+      ],
+      "d": "ceiling with white panels and mesh grid pattern, artificial lighting fixtures",
+      "ref": "obj_techo_53480"
+    }
+  ],
+  "t": [
+    {
+      "text": "HALL HAKERS",
+      "b": [
+        0.0,
+        0.0,
+        1.0,
+        0.1
+      ],
+      "type": "logo"
+    }
+  ],
+  "colors": [
+    "#1fb5a8",
+    "#ffffff",
+    "#2a2a2a",
+    "#4a90e2",
+    "#e8e8e8"
+  ],
+  "p": {
+    "place": "place_hall_hakers_26049",
+    "place_refs": [
+      {
+        "id": "place_hall_hakers_26049_p15",
+        "hint": "facing -56deg, tilt 31deg"
+      },
+      {
+        "id": "place_hall_hakers_26049_p14",
+        "hint": "facing -68deg, tilt 41deg"
+      },
+      {
+        "id": "place_hall_hakers_26049_p16",
+        "hint": "facing -62deg, tilt 40deg"
+      }
+    ]
+  },
+  "m": {
+    "ts": 1775356118,
+    "tz": "Europe/Paris",
+    "loc": [
+      43.5497574,
+      7.0179088
+    ],
+    "compass": -113.64977839245743,
+    "tilt": 31.85340067401087,
+    "dev": "SM-S921B"
+  },
+  "c": {
+    "fl": 4.7,
+    "ap": 1.8,
+    "zm": 1.0
+  },
+  "sid": "sess_20260405_0400"
+}

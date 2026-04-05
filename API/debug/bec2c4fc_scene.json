@@ -1,0 +1,122 @@
+{
+  "v": 1,
+  "s": {
+    "d": "Man in black hoodie and pants leaning back in a wooden chair, examining server racks and network equipment in an indoor hacker space, turquoise accent wall visible behind rows of black hardware servers.",
+    "mood": "casual",
+    "light": {
+      "dir": "above",
+      "type": "artificial",
+      "warmth": "neutral"
+    },
+    "depth": "man in fg/mg interacting with server equipment, hall interior bg",
+    "style": "documentary photography"
+  },
+  "o": [
+    {
+      "n": "person",
+      "b": [
+        0.34,
+        0.32,
+        0.44,
+        0.39
+      ],
+      "d": "Man mid-30s, glasses, curly hair, black hoodie, black pants, black shoes, reclined in wooden chair with legs extended, hands resting on lap, examining server rack setup",
+      "ref": "usr_jistro_30917"
+    },
+    {
+      "n": "server rack",
+      "b": [
+        0.0,
+        0.2,
+        0.35,
+        0.8
+      ],
+      "d": "Multiple black server units stacked vertically with cable management, network equipment, attended by person in chair"
+    },
+    {
+      "n": "silla",
+      "b": [
+        0.3,
+        0.35,
+        0.5,
+        0.65
+      ],
+      "d": "Wooden chair with natural finish, occupied by leaning figure",
+      "ref": "obj_silla_34421"
+    },
+    {
+      "n": "columna",
+      "b": [
+        0.8,
+        0.0,
+        1.0,
+        0.5
+      ],
+      "d": "White structural column on right side of hall",
+      "ref": "obj_columna_5151"
+    },
+    {
+      "n": "wall accent",
+      "b": [
+        0.0,
+        0.5,
+        0.2,
+        1.0
+      ],
+      "d": "Turquoise painted wall section behind server equipment"
+    }
+  ],
+  "t": [
+    {
+      "text": "HACKER SPACE",
+      "b": [
+        0.15,
+        0.55,
+        0.35,
+        0.75
+      ],
+      "type": "sign"
+    }
+  ],
+  "colors": [
+    "#1a1a1a",
+    "#ffffff",
+    "#00a4a4",
+    "#8b7355",
+    "#666666"
+  ],
+  "p": {
+    "place": "place_hall_hakers_26049",
+    "place_refs": [
+      {
+        "id": "place_hall_hakers_26049_p15",
+        "hint": "facing -56deg, tilt 31deg"
+      },
+      {
+        "id": "place_hall_hakers_26049_p14",
+        "hint": "facing -68deg, tilt 41deg"
+      },
+      {
+        "id": "place_hall_hakers_26049_p16",
+        "hint": "facing -62deg, tilt 40deg"
+      }
+    ]
+  },
+  "m": {
+    "ts": 1775358588,
+    "tz": "Europe/Paris",
+    "loc": [
+      43.5497069,
+      7.0178631
+    ],
+    "compass": -129.22868173825864,
+    "tilt": 31.429752506841275,
+    "dev": "SM-S921B"
+  },
+  "c": {
+    "fl": 4.7,
+    "ap": 1.8,
+    "zm": 1.0
+  },
+  "sid": "sess_20260405_0400"
+}

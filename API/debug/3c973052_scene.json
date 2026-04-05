@@ -1,0 +1,131 @@
+{
+  "v": 1,
+  "s": {
+    "d": "Man in black jacket and glasses standing in Hall Hakers event space, holding a straw hat, posing next to a large white circular table with a green leafy plant centerpiece, surrounded by woven natural fiber decorations and potted plants.",
+    "mood": "casual",
+    "light": {
+      "dir": "above",
+      "type": "artificial",
+      "warmth": "neutral"
+    },
+    "depth": "person in middle ground, decorative elements foreground and background, exhibition hall setting",
+    "style": "documentary event photography"
+  },
+  "o": [
+    {
+      "n": "person",
+      "b": [
+        0.53,
+        0.26,
+        0.61,
+        0.32
+      ],
+      "d": "Man mid-30s, dark hair, glasses, wearing black long-sleeve jacket with white stripe detail, holding a tan/beige straw hat at chest level, smiling, standing upright in event space",
+      "ref": "usr_julio_26433"
+    },
+    {
+      "n": "mesa",
+      "b": [
+        0.65,
+        0.35,
+        0.95,
+        0.75
+      ],
+      "d": "Large white circular table with green leafy plant arrangement in center",
+      "ref": "obj_mesa_38837"
+    },
+    {
+      "n": "planta",
+      "b": [
+        0.75,
+        0.4,
+        0.88,
+        0.55
+      ],
+      "d": "Fresh green leafy plant in white bowl on table",
+      "ref": "obj_planta_30099"
+    },
+    {
+      "n": "cojines",
+      "b": [
+        0.65,
+        0.5,
+        0.98,
+        0.85
+      ],
+      "d": "Large woven natural fiber circular decorative elements with geometric patterns",
+      "ref": "obj_cojines_69909"
+    },
+    {
+      "n": "maceta",
+      "b": [
+        0.1,
+        0.15,
+        0.35,
+        0.45
+      ],
+      "d": "Potted plant with green foliage in background left",
+      "ref": "obj_maceta_96703"
+    },
+    {
+      "n": "stand",
+      "b": [
+        0.15,
+        0.2,
+        0.45,
+        0.5
+      ],
+      "d": "Dark display stand or kiosk with signage",
+      "ref": "obj_stand_85952"
+    }
+  ],
+  "t": [
+    {
+      "text": "FHCM",
+      "b": [
+        0.2,
+        0.3,
+        0.4,
+        0.38
+      ],
+      "type": "sign"
+    }
+  ],
+  "colors": [
+    "#1a1a1a",
+    "#f5f5f5",
+    "#4db8a8",
+    "#8b7355",
+    "#7cb342"
+  ],
+  "p": {
+    "place": "place_hall_hakers_26049",
+    "place_refs": [
+      {
+        "id": "place_hall_hakers_26049_p14",
+        "hint": "facing -68deg, tilt 41deg"
+      },
+      {
+        "id": "place_hall_hakers_26049_p16",
+        "hint": "facing -62deg, tilt 40deg"
+      }
+    ]
+  },
+  "m": {
+    "ts": 1775358381,
+    "tz": "Europe/Paris",
+    "loc": [
+      43.5496699,
+      7.0179071
+    ],
+    "compass": 171.9870046596158,
+    "tilt": 50.48751646777342,
+    "dev": "SM-S921B"
+  },
+  "c": {
+    "fl": 4.7,
+    "ap": 1.8,
+    "zm": 1.0
+  },
+  "sid": "sess_20260405_0400"
+}
