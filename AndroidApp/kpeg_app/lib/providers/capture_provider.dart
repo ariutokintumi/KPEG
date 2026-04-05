@@ -18,6 +18,8 @@ class CaptureProvider extends ChangeNotifier {
   final KpegRepository _kpegRepo;
   final SensorService _sensors;
   final FaceDetectionService _faceDetection;
+  // Mantenido para compatibilidad del constructor (auto-ID desactivada)
+  // ignore: unused_field
   final FaceCropService _faceCrop;
 
   CaptureProvider({
@@ -91,30 +93,12 @@ class CaptureProvider extends ChangeNotifier {
         imageHeight: photoHeight!,
       );
 
-      // Auto-identify each face on-device (privacy-first)
-      for (final face in detectedFaces) {
-        try {
-          final embedding = await _faceCrop.extractEmbedding(
-            photo!,
-            left: face.boundingBox.left,
-            top: face.boundingBox.top,
-            right: face.boundingBox.right,
-            bottom: face.boundingBox.bottom,
-            imageWidth: photoWidth!,
-            imageHeight: photoHeight!,
-          );
+      // Ordenar caras de izquierda a derecha por borde izquierdo del bbox
+      detectedFaces.sort(
+          (a, b) => a.boundingBox.left.compareTo(b.boundingBox.left));
 
-          final match = _faceCrop.findMatch(embedding);
-          if (match.person != null) {
-            face.personId = match.person!.id;
-            face.userId = match.person!.visibleUserId;
-            face.personName = match.person!.name;
-            face.confidence = match.confidence;
-          }
-        } catch (_) {
-          // Embedding extraction failed — leave as untagged
-        }
-      }
+      // Todas las caras empiezan sin identificar (unknown_0, unknown_1, etc.)
+      // El usuario asigna manualmente cada una desde el picker
     } catch (_) {
       // Face detection failed — continue without faces
     }

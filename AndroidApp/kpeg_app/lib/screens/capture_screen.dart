@@ -296,42 +296,61 @@ class _CaptureScreenState extends State<CaptureScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: KpegTheme.bgDark1,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) {
-        return Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Who is this?',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 16),
-              // "Unknown" option — always first
-              _personOption(ctx, captureProvider, faceIndex, Person.unknown),
-              if (people.isNotEmpty) const Divider(color: Colors.white12),
-              ...people.map((person) => _personOption(
-                  ctx, captureProvider, faceIndex, person)),
-              const SizedBox(height: 8),
-              // Remove tag option
-              if (captureProvider.detectedFaces[faceIndex].isTagged)
-                ListTile(
-                  leading: const Icon(Icons.close, color: Colors.redAccent),
-                  title: const Text('Remove tag',
-                      style: TextStyle(color: Colors.redAccent)),
-                  onTap: () {
-                    captureProvider.excludeFace(faceIndex);
-                    Navigator.pop(ctx);
-                  },
+        // Limitar altura máxima al 60% de pantalla para no tapar la barra inferior
+        final maxHeight = MediaQuery.of(ctx).size.height * 0.6;
+        return ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: maxHeight),
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 20,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Who is this?',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700),
                 ),
-            ],
+                const SizedBox(height: 16),
+                // Lista scrollable de personas
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: [
+                      // "Unknown" option — always first
+                      _personOption(ctx, captureProvider, faceIndex, Person.unknown),
+                      if (people.isNotEmpty) const Divider(color: Colors.white12),
+                      ...people.map((person) => _personOption(
+                          ctx, captureProvider, faceIndex, person)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // Remove tag option
+                if (captureProvider.detectedFaces[faceIndex].isTagged)
+                  ListTile(
+                    leading: const Icon(Icons.close, color: Colors.redAccent),
+                    title: const Text('Remove tag',
+                        style: TextStyle(color: Colors.redAccent)),
+                    onTap: () {
+                      captureProvider.excludeFace(faceIndex);
+                      Navigator.pop(ctx);
+                    },
+                  ),
+              ],
+            ),
           ),
         );
       },

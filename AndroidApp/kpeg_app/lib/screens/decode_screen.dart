@@ -186,7 +186,7 @@ class DecodeScreen extends StatelessWidget {
           ),
           SizedBox(height: 8),
           Text(
-            'This may take 5-15 seconds',
+            'This may take 5-40 seconds depending on quality',
             style: TextStyle(color: Colors.white38, fontSize: 13),
           ),
         ],

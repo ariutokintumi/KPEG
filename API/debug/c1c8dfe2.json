@@ -1,0 +1,31 @@
+{
+  "orientation": "portrait",
+  "timestamp": 1775359775,
+  "timezone": "Europe/Paris",
+  "device_model": "SM-S921B",
+  "is_outdoor": false,
+  "lat": 43.5497457,
+  "lng": 7.0179302,
+  "compass_heading": 17.55117852525034,
+  "camera_tilt": 26.149508152590116,
+  "people": [
+    {
+      "user_id": "usr_jistro_30917",
+      "bbox": [
+        0.37,
+        0.22,
+        0.49,
+        0.31
+      ]
+    }
+  ],
+  "lens_info": {
+    "focal_length_mm": 4.7,
+    "aperture": 1.8,
+    "zoom_level": 1.0
+  },
+  "flash_used": false,
+  "indoor_place_id": "place_hall_hakers_26049",
+  "indoor_description": "durmiendo en la silla amaca",
+  "session_id": "sess_20260405_0529"
+}

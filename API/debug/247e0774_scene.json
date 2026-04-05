@@ -1,0 +1,164 @@
+{
+  "v": 1,
+  "s": {
+    "d": "Man in navy polo and white cap sitting casually on a black chair at Hall Hakers indoor event space, smiling at camera, wearing a hacker badge; two figures in hoodies standing nearby conversing, hammocks and tropical plants framing the scene, turquoise floor and grid ceiling throughout.",
+    "mood": "casual",
+    "light": {
+      "dir": "above",
+      "type": "artificial",
+      "warmth": "neutral"
+    },
+    "depth": "seated figure fg, standing figures mg, hammocks and plants bg",
+    "style": "documentary photography"
+  },
+  "o": [
+    {
+      "n": "person",
+      "b": [
+        0.32,
+        0.35,
+        0.52,
+        0.75
+      ],
+      "d": "Man mid-30s, white cap, navy polo with hacker badge, smiling, seated on black chair, casual relaxed pose, one leg extended",
+      "ref": "usr_german_9292"
+    },
+    {
+      "n": "person",
+      "b": [
+        0.73,
+        0.25,
+        0.77,
+        0.31
+      ],
+      "d": "Figure in black hoodie and cap, standing, holding microphone, engaged in conversation, head turned slightly",
+      "ref": "unknown1"
+    },
+    {
+      "n": "person",
+      "b": [
+        0.84,
+        0.24,
+        0.88,
+        0.3
+      ],
+      "d": "Figure in black hoodie, standing beside unknown1, hands in pockets, attentive posture",
+      "ref": "unknown2"
+    },
+    {
+      "n": "silla",
+      "b": [
+        0.32,
+        0.48,
+        0.5,
+        0.65
+      ],
+      "d": "black chair, occupied by seated man",
+      "ref": "obj_silla_34421"
+    },
+    {
+      "n": "amaca",
+      "b": [
+        0.35,
+        0.25,
+        0.68,
+        0.45
+      ],
+      "d": "red hammock suspended in background",
+      "ref": "obj_amaca_14625"
+    },
+    {
+      "n": "palmera",
+      "b": [
+        0.05,
+        0.15,
+        0.25,
+        0.65
+      ],
+      "d": "tall tropical palm plant in wooden planter, left side of frame",
+      "ref": "obj_palmera_92652"
+    },
+    {
+      "n": "planta",
+      "b": [
+        0.2,
+        0.35,
+        0.32,
+        0.65
+      ],
+      "d": "potted green plant near seated figure",
+      "ref": "obj_planta_30099"
+    },
+    {
+      "n": "columna",
+      "b": [
+        0.88,
+        0.0,
+        1.0,
+        0.5
+      ],
+      "d": "white structural column on right edge",
+      "ref": "obj_columna_5151"
+    },
+    {
+      "n": "gafete de hacker",
+      "b": [
+        0.42,
+        0.42,
+        0.48,
+        0.48
+      ],
+      "d": "white badge worn by seated man",
+      "ref": "obj_gafete_de_hacker_26645"
+    }
+  ],
+  "t": [
+    {
+      "text": "B-G2",
+      "b": [
+        0.88,
+        0.02,
+        0.98,
+        0.08
+      ],
+      "type": "sign"
+    }
+  ],
+  "colors": [
+    "#00B8A9",
+    "#1F1F1F",
+    "#FFFFFF",
+    "#2B2B2B",
+    "#6B7280"
+  ],
+  "p": {
+    "place": "place_hall_hakers_26049",
+    "place_refs": [
+      {
+        "id": "place_hall_hakers_26049_p14",
+        "hint": "facing -68deg, tilt 41deg"
+      },
+      {
+        "id": "place_hall_hakers_26049_p16",
+        "hint": "facing -62deg, tilt 40deg"
+      }
+    ]
+  },
+  "m": {
+    "ts": 1775359917,
+    "tz": "Europe/Paris",
+    "loc": [
+      43.5497173,
+      7.0178916
+    ],
+    "compass": -105.16788555659552,
+    "tilt": 42.61772334262175,
+    "dev": "SM-S921B"
+  },
+  "c": {
+    "fl": 4.7,
+    "ap": 1.8,
+    "zm": 1.0
+  },
+  "sid": "sess_20260405_0529"
+}

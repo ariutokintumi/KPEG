@@ -1,0 +1,127 @@
+{
+  "v": 1,
+  "s": {
+    "d": "Man wearing black jacket and hacker badge sitting at a table in Hall Hakers, holding a red snack package, with laptop and electronics visible on the table, programming event in progress.",
+    "mood": "casual",
+    "light": {
+      "dir": "above",
+      "type": "artificial",
+      "warmth": "neutral"
+    },
+    "depth": "subject in foreground seated at table, other attendees and event setup in background",
+    "style": "documentary"
+  },
+  "o": [
+    {
+      "n": "person",
+      "b": [
+        0.2,
+        0.25,
+        0.5,
+        0.75
+      ],
+      "d": "Man mid-30s with dark hair and beard, wearing black jacket with blue hacker badge visible on chest, holding red snack package in hand, sitting at table, smiling at camera, casual posture",
+      "ref": "usr_pablo_58684"
+    },
+    {
+      "n": "laptop",
+      "b": [
+        0.15,
+        0.55,
+        0.45,
+        0.85
+      ],
+      "d": "Black laptop on table in front of seated person",
+      "ref": "obj_laptop_67979"
+    },
+    {
+      "n": "mesa",
+      "b": [
+        0.0,
+        0.4,
+        1.0,
+        1.0
+      ],
+      "d": "Dark table surface where person is seated, with electronics and snacks",
+      "ref": "obj_mesa_38837"
+    },
+    {
+      "n": "gafete_de_hacker",
+      "b": [
+        0.25,
+        0.35,
+        0.35,
+        0.45
+      ],
+      "d": "Blue hacker badge worn on person's chest",
+      "ref": "obj_gafete_de_hacker_26645"
+    },
+    {
+      "n": "other",
+      "b": [
+        0.1,
+        0.5,
+        0.6,
+        0.9
+      ],
+      "d": "Red device components and wiring on table surface"
+    }
+  ],
+  "t": [
+    {
+      "text": "HALL HAKERS",
+      "b": [
+        0.0,
+        0.0,
+        1.0,
+        0.15
+      ],
+      "type": "sign"
+    }
+  ],
+  "colors": [
+    "#1a1a1a",
+    "#00bcd4",
+    "#ff4444",
+    "#cccccc",
+    "#ffffff"
+  ],
+  "p": {
+    "place": "place_hall_hakers_26049",
+    "indoor": "programando en su mesa",
+    "place_refs": [
+      {
+        "id": "place_hall_hakers_26049_p15",
+        "hint": "facing -56deg, tilt 31deg"
+      },
+      {
+        "id": "place_hall_hakers_26049_p14",
+        "hint": "facing -68deg, tilt 41deg"
+      },
+      {
+        "id": "place_hall_hakers_26049_p16",
+        "hint": "facing -62deg, tilt 40deg"
+      }
+    ]
+  },
+  "m": {
+    "ts": 1775359322,
+    "tz": "Europe/Paris",
+    "loc": [
+      43.5497098,
+      7.0178977
+    ],
+    "compass": -143.42346773932428,
+    "tilt": 30.0966519423715,
+    "dev": "SM-S921B"
+  },
+  "c": {
+    "fl": 4.7,
+    "ap": 1.8,
+    "zm": 1.0
+  },
+  "tags": [
+    "hackathon"
+  ],
+  "sid": "sess_20260405_0400"
+}

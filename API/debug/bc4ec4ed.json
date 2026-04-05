@@ -1,0 +1,34 @@
+{
+  "orientation": "portrait",
+  "timestamp": 1775359322,
+  "timezone": "Europe/Paris",
+  "device_model": "SM-S921B",
+  "is_outdoor": false,
+  "lat": 43.5497098,
+  "lng": 7.0178977,
+  "compass_heading": -143.42346773932428,
+  "camera_tilt": 30.0966519423715,
+  "people": [
+    {
+      "user_id": "usr_pablo_58684",
+      "bbox": [
+        0.5,
+        0.28,
+        0.62,
+        0.37
+      ]
+    }
+  ],
+  "tags": [
+    "hackathon"
+  ],
+  "lens_info": {
+    "focal_length_mm": 4.7,
+    "aperture": 1.8,
+    "zoom_level": 1.0
+  },
+  "flash_used": false,
+  "indoor_place_id": "place_hall_hakers_26049",
+  "indoor_description": "programando en su mesa",
+  "session_id": "sess_20260405_0400"
+}

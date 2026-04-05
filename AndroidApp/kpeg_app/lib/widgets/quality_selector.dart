@@ -16,22 +16,22 @@ class QualitySelector extends StatelessWidget {
       'fast',
       'Fast',
       Icons.bolt_rounded,
-      '~2s',
-      'FLUX Schnell\nNo library refs',
+      '5-10s',
+      'PuLID FLUX quick\nFace identity, no scene refs',
     ),
     (
       'balanced',
       'Balanced',
       Icons.tune_rounded,
-      '~10s',
-      'FLUX Dev + Kontext\nBitmap + faces + places',
+      '10-20s',
+      'PuLID + Kontext\nFace + scene + objects',
     ),
     (
       'high',
       'High Quality',
       Icons.auto_awesome_rounded,
-      '~20s',
-      'FLUX Pro + Kontext\n+ Clarity upscaler 2x',
+      '20-40s',
+      'PuLID + Kontext\nFace + scene + objects + 2x upscale',
     ),
   ];
 

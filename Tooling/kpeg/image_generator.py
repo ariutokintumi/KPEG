@@ -295,12 +295,15 @@ def pulid_generate(
     width: int = 1024,
     height: int = 1024,
     id_weight: float = 1.0,
+    num_steps: int = 28,
     submit: Optional[Callable[[str, dict], dict]] = None,
 ) -> Image.Image:
     """Generate image with embedded face identity via PuLID FLUX.
 
     PuLID inyecta la identidad facial DENTRO de la generación, no como
     post-proceso. Mucho más fiable que face-swap para preservar identidad.
+
+    num_steps: 12 para fast (rápido), 28 para balanced/high (calidad).
     """
     submit = submit or _default_submit
     args = {
@@ -308,7 +311,7 @@ def pulid_generate(
         "reference_image_url": face_url,
         "image_size": {"width": width, "height": height},
         "id_weight": id_weight,
-        "num_inference_steps": 28,
+        "num_inference_steps": num_steps,
         "guidance_scale": 4,
         "enable_safety_checker": False,
         "max_sequence_length": "256",
@@ -380,28 +383,34 @@ def generate_image(
     if submit is None and not FAL_KEY:
         return stub_generate(prompt, guide_image, width=width, height=height)
 
-    # Extraer caras si hay refs categorizadas
+    # Extraer refs categorizadas
     face_urls = []
     face_people = []
     if categorized_refs:
         face_urls = categorized_refs.get("face_urls", [])
         face_people = categorized_refs.get("face_people", [])
 
-    # Stage 1: con identidad facial (PuLID) o sin ella (FLUX estándar)
+    # ════════════════════════════════════════
+    # STAGE 1: Generación base con identidad facial (PuLID) o sin ella
+    # ════════════════════════════════════════
     tier = _STAGE1_MODELS[quality]
-    if face_urls and face_people and quality != "fast":
-        # PuLID FLUX: genera la imagen CON la cara del sujeto principal embebida
+    if face_urls and face_people:
+        # PuLID FLUX: genera con la cara del sujeto principal embebida
         person_desc = face_people[0].get("description", "")
         pulid_prompt = f"{prompt} The main subject is {person_desc}."
-        print(f"  Stage 1: PuLID ({face_people[0]['ref']}) + prompt")
+        # Fast usa menos pasos para ser rápido pero SÍ aplica la cara
+        steps = 12 if quality == "fast" else 28
+        weight = 0.85 if quality == "fast" else 0.95
+        print(f"  Stage 1: PuLID ({face_people[0]['ref']}, steps={steps}, id={weight}) + prompt")
         base = pulid_generate(
             pulid_prompt, face_urls[0],
             width=width, height=height,
-            id_weight=0.95,
+            id_weight=weight,
+            num_steps=steps,
             submit=submit,
         )
     else:
-        # FLUX estándar (sin cara o fast tier)
+        # FLUX estándar (sin caras detectadas)
         base = stage1_generate(
             prompt, guide_image,
             model=tier["model"],
@@ -410,12 +419,14 @@ def generate_image(
             submit=submit,
         )
 
-    # Stage 2 — skip entirely for fast tier
+    # Fast: no hace Stage 2 (la cara ya está aplicada por PuLID)
     if quality == "fast":
         return base
 
+    # ════════════════════════════════════════
+    # STAGE 2: Refinamiento de escena + objetos (Kontext) — balanced/high
+    # ════════════════════════════════════════
     if categorized_refs is not None:
-        # ── Stage 2: Scene + objects refinement (Kontext) ──
         scene_urls = []
         bitmap_url = categorized_refs.get("bitmap_url")
         if bitmap_url:
@@ -425,26 +436,46 @@ def generate_image(
 
         if scene_urls:
             obj_descriptions = categorized_refs.get("object_descriptions", [])
+
+            # Prompt detallado para que Kontext sea fiel a la escena y objetos
             scene_prompt = (
-                "Refine the background and objects to match the reference images. "
-                "The first reference is the color/composition guide for spatial layout. "
+                "Refine this image to be MORE FAITHFUL to the reference photos. "
             )
+            if bitmap_url:
+                scene_prompt += "The first reference is the spatial color/edge guide — match the overall composition and color layout. "
             if categorized_refs.get("place_urls"):
-                scene_prompt += "The venue photos show the exact location — match architecture, furniture, and atmosphere. "
+                scene_prompt += (
+                    "The venue reference photos show the EXACT real location where this photo was taken. "
+                    "Match the architecture, walls, ceiling, floor, lighting fixtures, and general atmosphere PRECISELY from these venue photos. "
+                )
             if obj_descriptions:
-                scene_prompt += "These specific objects must appear: " + ", ".join(obj_descriptions) + ". "
-            scene_prompt += "IMPORTANT: Keep the people, their faces, and their poses EXACTLY as they are. Do NOT change any faces."
+                scene_prompt += (
+                    "The following objects appear in the original photo and MUST be faithfully reproduced "
+                    "using the reference photos provided for each: " +
+                    "; ".join(obj_descriptions) + ". "
+                    "Each object reference photo shows the REAL object — match its exact appearance, color, shape, and texture. "
+                )
+            scene_prompt += (
+                "CRITICAL: Do NOT modify, change, or alter any person's face, expression, or identity. "
+                "Keep all people EXACTLY as they are."
+            )
+            print(f"  Stage 2: Kontext ({len(scene_urls)} refs: "
+                  f"{1 if bitmap_url else 0} bitmap + "
+                  f"{len(categorized_refs.get('place_urls', []))} places + "
+                  f"{len(categorized_refs.get('object_urls', []))} objects)")
             base = stage2_refine(base, scene_prompt, scene_urls, submit=submit)
 
     elif reference_urls:
-        # ── Legacy single-pass (backward compat) ──
+        # Legacy single-pass (backward compat)
         person_prompt = build_person_prompt(scene)
         refine_prompt = prompt
         if person_prompt:
             refine_prompt = f"{prompt} People: {person_prompt}"
         base = stage2_refine(base, refine_prompt, reference_urls, submit=submit)
 
-    # Upscale on high tier
+    # ════════════════════════════════════════
+    # STAGE 3: Upscale (high tier only)
+    # ════════════════════════════════════════
     if quality == "high":
         try:
             base = upscale(base, scale=2, submit=submit)

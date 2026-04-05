@@ -1,0 +1,82 @@
+{
+  "v": 1,
+  "s": {
+    "d": "Person sleeping reclined in a wooden chair at Hall Hakers venue, legs extended, head tilted back, wearing dark jacket and black shoes, surrounded by event furniture and turquoise-accented decor.",
+    "mood": "casual",
+    "light": {
+      "dir": "above",
+      "type": "artificial",
+      "warmth": "neutral"
+    },
+    "depth": "person center, wooden chair fg, black plastic crates and turquoise panels bg",
+    "style": "documentary"
+  },
+  "o": [
+    {
+      "n": "person",
+      "b": [
+        0.37,
+        0.22,
+        0.49,
+        0.31
+      ],
+      "d": "Jistro sleeping reclined in wooden chair, head tilted back, dark jacket, black pants, black shoes, relaxed pose with legs extended",
+      "ref": "usr_jistro_30917"
+    },
+    {
+      "n": "silla",
+      "b": [
+        0.28,
+        0.25,
+        0.55,
+        0.45
+      ],
+      "d": "wooden chair with person sleeping reclined in it",
+      "ref": "obj_silla_34421"
+    },
+    {
+      "n": "decoration",
+      "b": [
+        0.0,
+        0.3,
+        0.25,
+        0.6
+      ],
+      "d": "turquoise and black event panels, black plastic crates stacked"
+    }
+  ],
+  "colors": [
+    "#1a1a1a",
+    "#40b4d4",
+    "#8b7355",
+    "#cccccc",
+    "#333333"
+  ],
+  "p": {
+    "place": "place_hall_hakers_26049",
+    "indoor": "durmiendo en la silla amaca",
+    "place_refs": [
+      {
+        "id": "place_hall_hakers_26049_p13",
+        "hint": "facing 11deg, tilt 37deg"
+      }
+    ]
+  },
+  "m": {
+    "ts": 1775359775,
+    "tz": "Europe/Paris",
+    "loc": [
+      43.5497457,
+      7.0179302
+    ],
+    "compass": 17.55117852525034,
+    "tilt": 26.149508152590116,
+    "dev": "SM-S921B"
+  },
+  "c": {
+    "fl": 4.7,
+    "ap": 1.8,
+    "zm": 1.0
+  },
+  "sid": "sess_20260405_0529"
+}

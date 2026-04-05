@@ -113,7 +113,10 @@ class FaceOverlay extends StatelessWidget {
 
   String _labelText(DetectedFace face) {
     if (!face.isTagged) return 'Unknown';
-    if (face.tier == ConfidenceTier.medium) return '${face.personName}?';
-    return face.personName ?? 'Unknown';
+    final name = face.personName ?? 'Unknown';
+    // Mostrar hasta 5 caracteres del nombre
+    final short = name.length > 5 ? name.substring(0, 5) : name;
+    if (face.tier == ConfidenceTier.medium) return '$short?';
+    return short;
   }
 }
