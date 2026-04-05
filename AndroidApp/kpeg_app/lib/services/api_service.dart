@@ -38,11 +38,11 @@ class HederaInfo {
 }
 
 class ApiService {
-  final String baseUrl;
   final bool useMock;
 
+  String get baseUrl => AppConfig.apiBaseUrl;
+
   ApiService({
-    this.baseUrl = AppConfig.apiBaseUrl,
     this.useMock = AppConfig.useMock,
   });
 

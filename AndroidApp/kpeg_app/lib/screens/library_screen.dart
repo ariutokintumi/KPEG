@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../config/app_config.dart';
 import '../config/theme.dart';
 import '../providers/objects_provider.dart';
 import '../providers/people_provider.dart';
@@ -41,6 +42,76 @@ class _LibraryScreenState extends State<LibraryScreen>
     super.dispose();
   }
 
+  void _showSettingsDialog(BuildContext context) {
+    final controller = TextEditingController(text: AppConfig.serverIp);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A1A),
+        title: const Text('Server Settings',
+            style: TextStyle(color: Colors.white, fontSize: 16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Server IP',
+                style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.5), fontSize: 12)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: controller,
+              style: const TextStyle(color: Colors.white, fontFamily: 'monospace'),
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                hintText: AppConfig.defaultServerIp,
+                hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
+                suffixText: ':${AppConfig.serverPort}',
+                suffixStyle: TextStyle(
+                    color: KpegTheme.accent.withValues(alpha: 0.7), fontSize: 14),
+                enabledBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(
+                        color: KpegTheme.accent.withValues(alpha: 0.3))),
+                focusedBorder: const UnderlineInputBorder(
+                    borderSide: BorderSide(color: KpegTheme.accent)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text('Current: ${AppConfig.apiBaseUrl}',
+                style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.3),
+                    fontSize: 11,
+                    fontFamily: 'monospace')),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              final ip = controller.text.trim();
+              if (ip.isNotEmpty) {
+                await AppConfig.setServerIp(ip);
+                if (ctx.mounted) Navigator.pop(ctx);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Server: ${AppConfig.apiBaseUrl}'),
+                      backgroundColor: KpegTheme.accent,
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Save', style: TextStyle(color: KpegTheme.accent)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return KpegGradientBackground(
@@ -48,28 +119,41 @@ class _LibraryScreenState extends State<LibraryScreen>
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: Column(
+              padding: const EdgeInsets.only(top: 16, bottom: 16, right: 8),
+              child: Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: KpegTheme.accent.withValues(alpha: 0.15),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                          color: KpegTheme.accent.withValues(alpha: 0.4),
-                          width: 1.5),
+                  const SizedBox(width: 48), // balance con el icono derecho
+                  Expanded(
+                    child: Column(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: KpegTheme.accent.withValues(alpha: 0.15),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                                color: KpegTheme.accent.withValues(alpha: 0.4),
+                                width: 1.5),
+                          ),
+                          child: const Icon(Icons.local_library_rounded,
+                              size: 28, color: KpegTheme.accent),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text('Library',
+                            style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                                letterSpacing: 2)),
+                      ],
                     ),
-                    child: const Icon(Icons.local_library_rounded,
-                        size: 28, color: KpegTheme.accent),
                   ),
-                  const SizedBox(height: 8),
-                  const Text('Library',
-                      style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                          letterSpacing: 2)),
+                  IconButton(
+                    onPressed: () => _showSettingsDialog(context),
+                    icon: Icon(Icons.settings_rounded,
+                        color: Colors.white.withValues(alpha: 0.5), size: 22),
+                    tooltip: 'Settings',
+                  ),
                 ],
               ),
             ),

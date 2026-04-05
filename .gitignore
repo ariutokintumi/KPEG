@@ -1,4 +1,5 @@
-*.apk
+# APKs ignorados excepto el release KPEG.apk
+AndroidApp/kpeg_app/build/**/*.apk
 ClaudeInfo/
 
 # Secrets

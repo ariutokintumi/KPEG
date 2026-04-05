@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'config/app_config.dart';
 import 'config/theme.dart';
 import 'providers/capture_provider.dart';
 import 'providers/gallery_provider.dart';
@@ -19,7 +20,9 @@ import 'screens/capture_screen.dart';
 import 'screens/gallery_screen.dart';
 import 'screens/library_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await AppConfig.load();
   runApp(const KpegApp());
 }
 
