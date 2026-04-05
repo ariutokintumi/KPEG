@@ -64,17 +64,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 1. User taps a `.kpeg` file in the gallery (shows local thumbnail)
 2. App sends it to **`POST /decode`** with quality param (fast/balanced/high)
 3. Backend pipeline:
-   - **Stage 1**: PuLID FLUX generates image WITH face identity embedded (if people detected), or standard FLUX (if no people/fast tier). Bitmap with edge map used as guide.
-   - **Stage 2** (balanced/high): Kontext refines scene with place + object references. Prompt says "keep faces unchanged."
+   - **Stage 1**: PuLID FLUX generates image WITH face identity embedded (all tiers when people detected). Fast uses 12 steps/id=0.85, balanced/high use 28 steps/id=0.95. Prompt includes explicit multi-person constraints to prevent face duplication.
+   - **Stage 2** (balanced/high): Kontext refines scene with bitmap guide (color regions + edge boundaries explained in prompt), place refs, and object refs. Prompt explicitly describes what each reference type is.
    - **Stage 3** (high only): Clarity upscaler 2x
 4. App displays the result
 
 ### Decode Quality Tiers
 | Tier | Stage 1 | Stage 2 (Scene+Objects) | Stage 3 | Time |
 |------|---------|------------------------|---------|------|
-| fast | FLUX Schnell (t2i, no face) | skip | skip | ~2s |
-| balanced | PuLID FLUX (face embedded) | Kontext + place/object refs | skip | ~15s |
-| high | PuLID FLUX (face embedded) | Kontext + place/object refs | Clarity 2x | ~25s |
+| fast | PuLID FLUX (12 steps, id=0.85) | skip | skip | 5-10s |
+| balanced | PuLID FLUX (28 steps, id=0.95) | Kontext + bitmap/place/object refs | skip | 10-20s |
+| high | PuLID FLUX (28 steps, id=0.95) | Kontext + bitmap/place/object refs | Clarity 2x | 20-40s |
 
 ## Repository Layout
 
@@ -326,12 +326,14 @@ The `AndroidManifest.xml` must include:
 - **App connects to real API** — `AppConfig.useMock = false`. Backend must be running.
 - **API URL config:** `AppConfig.apiBaseUrl` — use `10.0.2.2:8000` for emulator, PC's WiFi IP for physical device.
 - **Encode/decode are REAL AI** — encode uses Claude Vision (scene analysis) + bitmap with edge map + Brotli compression. Decode uses PuLID FLUX (face identity in generation) → Kontext (scene/objects) → optional upscale.
-- **Face identity via PuLID FLUX** — do NOT use `fal-ai/face-swap` (model removed/deprecated, gives 404). Use `fal-ai/flux-pulid` in Stage 1 to embed face identity DURING generation. `id_weight=0.95`, `enable_safety_checker=False`. Kontext Stage 2 must NOT modify faces.
+- **Face identity via PuLID FLUX** — do NOT use `fal-ai/face-swap` (model removed/deprecated, gives 404). Use `fal-ai/flux-pulid` in Stage 1 to embed face identity DURING generation. Fast: 12 steps/id=0.85, balanced/high: 28 steps/id=0.95. `enable_safety_checker=False`. Multi-person: prompt explicitly says each person has a UNIQUE face and the reference face is ONLY for Person 1. Kontext Stage 2 must NOT modify faces.
+- **Face tagging is manual** — auto-identification removed. All detected faces start as unknown (left→right order). User assigns each manually via bottom sheet picker. No max selfie/photo limits.
+- **No face duplication** — `build_prompt()` adds explicit constraint: "There are exactly N DIFFERENT people. Each has a UNIQUE face — do NOT duplicate." PuLID prompt says reference face is only for Person 1.
 - **Place photo selection is strict** — `select_best_place_refs()` picks 1 best match by compass/tilt angle, only adds more if within 30° of best. Photos with NULL compass get penalized (distance 999).
 - **Bounding boxes in prompts** — `build_prompt()` translates bbox coordinates to spatial positions ("on the left", "center", "right top") for both people and objects.
-- **Bitmap includes edge map** — 32x32 binary edge map (128 bytes, Sobel thresholded) appended after keypoints. Rendered as white overlay on color grid. Gives FLUX spatial boundary info (WHERE objects are, not just colors). Backward compatible — old .kpeg files without edges still decode fine.
-- **Debug decode** — `cd API && python3 debug_decode.py [kpeg_file]` simulates decode without calling AI, saves all prompts + reference files to `debug/` for inspection.
-- **Debug encode** — each `/encode` call saves input image, metadata JSON, output .kpeg, extracted bitmap, and scene JSON to `API/debug/`.
+- **Bitmap includes edge map** — 32x32 binary edge map (128 bytes, Sobel thresholded) appended after keypoints. Rendered as white overlay on color grid. Stage 2 prompt explains to FLUX: "colored regions = original color layout, white lines = object boundaries and edges." Backward compatible — old .kpeg files without edges still decode fine.
+- **Debug decode** — `cd API && python3 debug_decode.py [kpeg_file]` simulates decode without calling AI, saves prompts, bitmap, edge map (as visible PNG), and all reference files per tier to `debug/`.
+- **Debug encode** — each `/encode` call saves input image, metadata JSON, output .kpeg, extracted bitmap, edge map, and scene JSON to `API/debug/`.
 
 ## Hedera Integration (Blockchain)
 

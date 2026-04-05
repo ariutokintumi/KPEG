@@ -1,0 +1,51 @@
+{
+  "v": 1,
+  "s": {
+    "d": "Man mid-60s standing on pavement boundary between light concrete and dark asphalt, wearing dark navy puffer jacket and jeans, white sneakers, sunglasses, arms at sides, looking directly at camera.",
+    "mood": "casual",
+    "light": {
+      "dir": "above",
+      "type": "natural",
+      "warmth": "neutral"
+    },
+    "depth": "subject centered, flat ground plane",
+    "style": "documentary portrait"
+  },
+  "o": [
+    {
+      "n": "person",
+      "b": [
+        0.25,
+        0.15,
+        0.75,
+        0.95
+      ],
+      "d": "man mid-60s, gray hair, sunglasses, dark navy puffer jacket, jeans, white canvas sneakers, standing upright on pavement edge, looking at camera",
+      "ref": "usr_jose_m_63059"
+    }
+  ],
+  "colors": [
+    "#E8E8E8",
+    "#2C2C2C",
+    "#1A3A52",
+    "#FFFFFF",
+    "#A0A0A0"
+  ],
+  "m": {
+    "ts": 1775362152,
+    "tz": "Europe/Paris",
+    "loc": [
+      43.5496626,
+      7.0179016
+    ],
+    "compass": -89.37611936531086,
+    "tilt": 50.5030144889258,
+    "dev": "SM-S921B"
+  },
+  "c": {
+    "fl": 4.7,
+    "ap": 1.8,
+    "zm": 1.0
+  },
+  "sid": "sess_20260405_0602"
+}

@@ -1,0 +1,130 @@
+{
+  "v": 1,
+  "s": {
+    "d": "Two men wearing event lanyards posing for a photo in front of an ETH Global Cannes banner at Hall Hakers, both smiling at camera with palm tree and floral artwork visible behind them.",
+    "mood": "casual",
+    "light": {
+      "dir": "front",
+      "type": "artificial",
+      "warmth": "neutral"
+    },
+    "depth": "two people fg, banner mg, gridded ceiling and partition walls bg",
+    "style": "natural photography"
+  },
+  "o": [
+    {
+      "n": "person",
+      "b": [
+        0.03,
+        0.27,
+        0.26,
+        0.57
+      ],
+      "d": "Man mid-50s, gray hair, wearing glasses and dark jacket, wearing event lanyard, smiling toward camera, standing on left side of frame",
+      "ref": "usr_jose_m_63059"
+    },
+    {
+      "n": "person",
+      "b": [
+        0.69,
+        0.22,
+        0.89,
+        0.49
+      ],
+      "d": "Man mid-30s with dark hair and facial hair, wearing white cap, dark navy polo with emblem, wearing event lanyard, smiling toward camera on right side of frame",
+      "ref": "usr_german_9292"
+    },
+    {
+      "n": "banner",
+      "b": [
+        0.35,
+        0.15,
+        0.65,
+        0.75
+      ],
+      "d": "ETH Global Cannes event banner with palm trees and floral illustration, dated April 3-5, 2026",
+      "ref": "obj_banner_13155"
+    },
+    {
+      "n": "partition wall",
+      "b": [
+        0.0,
+        0.0,
+        1.0,
+        1.0
+      ],
+      "d": "white modular partition walls with dark frame",
+      "ref": "obj_columna_5151"
+    },
+    {
+      "n": "ceiling",
+      "b": [
+        0.0,
+        0.0,
+        1.0,
+        0.15
+      ],
+      "d": "gridded metal ceiling structure",
+      "ref": "obj_techo_53480"
+    }
+  ],
+  "t": [
+    {
+      "text": "ETH Global CANNES",
+      "b": [
+        0.38,
+        0.28,
+        0.62,
+        0.4
+      ],
+      "type": "sign"
+    },
+    {
+      "text": "April 3 \u2013 5, 2026",
+      "b": [
+        0.42,
+        0.48,
+        0.58,
+        0.54
+      ],
+      "type": "sign"
+    }
+  ],
+  "colors": [
+    "#FFFFFF",
+    "#4A4A4A",
+    "#2C2C2C",
+    "#D4AF37",
+    "#6B5B95"
+  ],
+  "p": {
+    "place": "place_hall_hakers_26049",
+    "place_refs": [
+      {
+        "id": "place_hall_hakers_26049_p14",
+        "hint": "facing -68deg, tilt 41deg"
+      },
+      {
+        "id": "place_hall_hakers_26049_p16",
+        "hint": "facing -62deg, tilt 40deg"
+      }
+    ]
+  },
+  "m": {
+    "ts": 1775360280,
+    "tz": "Europe/Paris",
+    "loc": [
+      43.5498118,
+      7.0179941
+    ],
+    "compass": 177.04314781536613,
+    "tilt": 44.80458339920533,
+    "dev": "SM-S921B"
+  },
+  "c": {
+    "fl": 4.7,
+    "ap": 1.8,
+    "zm": 1.0
+  },
+  "sid": "sess_20260405_0529"
+}

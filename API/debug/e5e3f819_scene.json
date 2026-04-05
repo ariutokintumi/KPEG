@@ -1,0 +1,74 @@
+{
+  "v": 1,
+  "s": {
+    "d": "Two men wearing event badges standing together in a modern indoor venue with gridded ceiling and fluorescent lighting, looking toward camera in a casual conference or event setting.",
+    "mood": "casual",
+    "light": {
+      "dir": "above",
+      "type": "artificial",
+      "warmth": "neutral"
+    },
+    "depth": "fg: two men, mg: empty venue floor with chairs, bg: white walls and gridded ceiling",
+    "style": "documentary photography"
+  },
+  "o": [
+    {
+      "n": "person",
+      "b": [
+        0.1,
+        0.15,
+        0.5,
+        0.95
+      ],
+      "d": "Man in late 30s, full beard, wearing cream baseball cap, clear glasses, navy blue t-shirt with logo, white event badge lanyard, facing camera with neutral expression, standing in foreground",
+      "ref": "usr_german_9292"
+    },
+    {
+      "n": "person",
+      "b": [
+        0.5,
+        0.25,
+        0.85,
+        0.85
+      ],
+      "d": "Man in mid-40s, gray hair, dark-framed glasses, wearing navy blue zip-up jacket over black shirt, white event badge lanyard, looking toward camera with slight smile",
+      "ref": "unknown1"
+    }
+  ],
+  "t": [
+    {
+      "text": "event badge text",
+      "b": [
+        0.25,
+        0.45,
+        0.35,
+        0.55
+      ],
+      "type": "label"
+    }
+  ],
+  "colors": [
+    "#E8E8E8",
+    "#1A3A52",
+    "#B8B8B8",
+    "#5A9AC9",
+    "#2D2D2D"
+  ],
+  "m": {
+    "ts": 1775362392,
+    "tz": "Europe/Paris",
+    "loc": [
+      43.5496832,
+      7.0177942
+    ],
+    "compass": -49.8569146200893,
+    "tilt": 37.79917311921405,
+    "dev": "SM-S921B"
+  },
+  "c": {
+    "fl": 4.7,
+    "ap": 1.8,
+    "zm": 1.0
+  },
+  "sid": "sess_20260405_0602"
+}

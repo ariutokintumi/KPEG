@@ -1,0 +1,74 @@
+{
+  "v": 1,
+  "s": {
+    "d": "Two men taking a selfie at an indoor event, both wearing lanyards with badges, smiling at camera, white walls and ceiling infrastructure in background.",
+    "mood": "casual",
+    "light": {
+      "dir": "front",
+      "type": "artificial",
+      "warmth": "neutral"
+    },
+    "depth": "fg: two people, bg: white walls, ceiling",
+    "style": "event selfie photography"
+  },
+  "o": [
+    {
+      "n": "person",
+      "b": [
+        0.26,
+        0.14,
+        0.49,
+        0.45
+      ],
+      "d": "man mid-30s, dark hair, full beard, white baseball cap, navy polo with event logo, wearing lanyard with badge, smiling at camera, arm extended for selfie",
+      "ref": "usr_german_9292"
+    },
+    {
+      "n": "person",
+      "b": [
+        0.57,
+        0.25,
+        0.73,
+        0.47
+      ],
+      "d": "man mid-40s, gray hair, clear glasses, navy zip-up jacket over white shirt, wearing lanyard with badge, smiling at camera, arm around first man's shoulder",
+      "ref": "usr_jose_m_63059"
+    }
+  ],
+  "t": [
+    {
+      "text": "hacker",
+      "b": [
+        0.32,
+        0.23,
+        0.42,
+        0.27
+      ],
+      "type": "label"
+    }
+  ],
+  "colors": [
+    "#2C3E50",
+    "#FFFFFF",
+    "#87CEEB",
+    "#D4AF37",
+    "#F5F5F5"
+  ],
+  "m": {
+    "ts": 1775362289,
+    "tz": "Europe/Paris",
+    "loc": [
+      43.5496868,
+      7.0178431
+    ],
+    "compass": 12.95257949671542,
+    "tilt": 32.853693241387084,
+    "dev": "SM-S921B"
+  },
+  "c": {
+    "fl": 4.7,
+    "ap": 1.8,
+    "zm": 1.0
+  },
+  "sid": "sess_20260405_0602"
+}

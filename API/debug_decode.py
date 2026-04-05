@@ -15,7 +15,9 @@ import io
 import json
 import os
 import sys
+import numpy as np
 from pathlib import Path
+from PIL import Image
 
 # Configurar imports del Tooling
 _TOOLING_DIR = Path(__file__).resolve().parent.parent / 'Tooling'
@@ -33,6 +35,7 @@ from kpeg.library_reader import (
     get_place_name,
     get_person_name,
 )
+from kpeg.bitmap import unpack_bitmap_full
 from kpeg.decoder import _collect_reference_urls, _collect_categorized_refs, _compute_output_size
 
 DEBUG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'debug')
@@ -71,16 +74,25 @@ def debug_decode(kpeg_path: str):
     scene = decompress_json(kpeg.compressed_json)
     metadata = scene.get('m') or {}
 
-    # 2. Bitmap
-    custom_palette, grid, keypoints = unpack_bitmap(kpeg.bitmap_data)
+    # 2. Bitmap (con edge map si existe)
+    custom_palette, grid, keypoints, edge_map = unpack_bitmap_full(kpeg.bitmap_data)
     out_w, out_h = _compute_output_size(kpeg.aspect_w, kpeg.aspect_h, 1024)
     guide_size = min(512, max(out_w, out_h))
-    guide = render_bitmap(custom_palette, grid, keypoints, width=guide_size, height=guide_size)
+    guide = render_bitmap(custom_palette, grid, keypoints, width=guide_size, height=guide_size, edge_map=edge_map)
 
-    # Guardar bitmap
+    # Guardar bitmap guide completo
     bitmap_path = os.path.join(DEBUG_DIR, f'{kpeg_id}_decode_bitmap.png')
     guide.save(bitmap_path)
     print(f'  Bitmap: {bitmap_path} ({guide_size}x{guide_size})')
+
+    # Guardar edge map como imagen visible (si existe)
+    if edge_map is not None:
+        edge_img = Image.fromarray((edge_map * 255).astype(np.uint8)).resize((512, 512), Image.Resampling.NEAREST)
+        edge_path = os.path.join(DEBUG_DIR, f'{kpeg_id}_decode_edgemap.png')
+        edge_img.save(edge_path)
+        print(f'  Edges:  {edge_path} ({edge_map.shape}, {edge_map.sum()} edge px)')
+    else:
+        print(f'  Edges:  (none — old kpeg format)')
 
     # Guardar scene JSON
     scene_path = os.path.join(DEBUG_DIR, f'{kpeg_id}_decode_scene.json')

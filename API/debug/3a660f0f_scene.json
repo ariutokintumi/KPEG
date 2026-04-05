@@ -1,0 +1,119 @@
+{
+  "v": 1,
+  "s": {
+    "d": "Man in black shirt wearing hacker badge standing in Hall Hakers event space, flanked by tropical plants and wooden furniture, turquoise floor path visible, multiple attendees and discussion areas in background.",
+    "mood": "casual",
+    "light": {
+      "dir": "above",
+      "type": "artificial",
+      "warmth": "neutral"
+    },
+    "depth": "subject center-foreground, plants flanking left, furniture and crowd receding to background",
+    "style": "documentary event photography"
+  },
+  "o": [
+    {
+      "n": "person",
+      "b": [
+        0.31,
+        0.27,
+        0.4,
+        0.35
+      ],
+      "d": "Man mid-50s, gray short hair, glasses, wearing black short-sleeved shirt and black pants, hacker badge visible on chest, standing upright facing camera with neutral expression in event hall",
+      "ref": "usr_jistro_30917"
+    },
+    {
+      "n": "palmera",
+      "b": [
+        0.0,
+        0.15,
+        0.25,
+        0.7
+      ],
+      "d": "Tall tropical palm plant on left side of frame, green fronds framing subject",
+      "ref": "obj_palmera_92652"
+    },
+    {
+      "n": "planta",
+      "b": [
+        0.25,
+        0.52,
+        0.32,
+        0.62
+      ],
+      "d": "Small green potted plant on floor near subject",
+      "ref": "obj_planta_30099"
+    },
+    {
+      "n": "amaca",
+      "b": [
+        0.62,
+        0.28,
+        0.95,
+        0.52
+      ],
+      "d": "Wooden-frame light canvas hammock on right side of frame",
+      "ref": "obj_amaca_14625"
+    },
+    {
+      "n": "silla",
+      "b": [
+        0.42,
+        0.35,
+        0.58,
+        0.5
+      ],
+      "d": "Black chairs visible in background seating area",
+      "ref": "obj_silla_34421"
+    },
+    {
+      "n": "gafete de hacker",
+      "b": [
+        0.33,
+        0.31,
+        0.37,
+        0.33
+      ],
+      "d": "White hacker badge worn on subject's chest",
+      "ref": "obj_gafete_de_hacker_26645"
+    }
+  ],
+  "colors": [
+    "#1a1a1a",
+    "#0099cc",
+    "#7fb069",
+    "#cccccc",
+    "#a0826d"
+  ],
+  "p": {
+    "place": "place_hall_hakers_26049",
+    "place_refs": [
+      {
+        "id": "place_hall_hakers_26049_p14",
+        "hint": "facing -68deg, tilt 41deg"
+      },
+      {
+        "id": "place_hall_hakers_26049_p16",
+        "hint": "facing -62deg, tilt 40deg"
+      }
+    ]
+  },
+  "m": {
+    "ts": 1775361956,
+    "tz": "Europe/Paris",
+    "loc": [
+      43.549699,
+      7.0178852
+    ],
+    "compass": -103.06062876367402,
+    "tilt": 57.207052260481106,
+    "dev": "SM-S921B"
+  },
+  "c": {
+    "fl": 4.7,
+    "ap": 1.8,
+    "zm": 1.0
+  },
+  "sid": "sess_20260405_0602"
+}

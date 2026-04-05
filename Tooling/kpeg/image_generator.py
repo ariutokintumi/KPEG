@@ -92,27 +92,36 @@ def build_prompt(scene: dict, camera: Optional[dict] = None, colors: Optional[li
     if main:
         parts.append(f"Photograph: {main.strip()}")
 
-    # People inline — with spatial position from bounding box
+    # People inline — with spatial position + explicit face identity constraints
+    persons = [o for o in (scene.get("o") or []) if o.get("n") == "person"]
     person_phrases = []
-    for o in scene.get("o") or []:
-        if o.get("n") == "person":
-            d = o.get("d")
-            if not d:
-                continue
-            b = o.get("b")
-            if b and len(b) == 4:
-                cx = (b[0] + b[2]) / 2
-                if cx < 0.33:
-                    pos = "left side"
-                elif cx > 0.67:
-                    pos = "right side"
-                else:
-                    pos = "center"
-                person_phrases.append(f"{d.strip()} (positioned {pos} of frame)")
+    for i, o in enumerate(persons):
+        d = o.get("d")
+        if not d:
+            continue
+        ref = o.get("ref", "")
+        b = o.get("b")
+        if b and len(b) == 4:
+            cx = (b[0] + b[2]) / 2
+            if cx < 0.33:
+                pos = "left side"
+            elif cx > 0.67:
+                pos = "right side"
             else:
-                person_phrases.append(d.strip())
+                pos = "center"
+            person_phrases.append(f"Person {i+1} ({pos} of frame): {d.strip()}")
+        else:
+            person_phrases.append(f"Person {i+1}: {d.strip()}")
+
     if person_phrases:
         parts.append("Subjects: " + "; ".join(person_phrases))
+    # Restricción explícita: cada persona es DISTINTA
+    if len(persons) > 1:
+        parts.append(
+            f"IMPORTANT: There are exactly {len(persons)} DIFFERENT people in this photo. "
+            "Each person has a UNIQUE and DISTINCT face — do NOT duplicate or repeat any face. "
+            "Each person must look different from the others."
+        )
 
     style = s.get("style")
     if style:
@@ -397,11 +406,20 @@ def generate_image(
     if face_urls and face_people:
         # PuLID FLUX: genera con la cara del sujeto principal embebida
         person_desc = face_people[0].get("description", "")
-        pulid_prompt = f"{prompt} The main subject is {person_desc}."
+        # Indicar explícitamente que la cara de referencia es SOLO para una persona
+        num_people = len([o for o in (scene.get("o") or []) if o.get("n") == "person"])
+        face_constraint = ""
+        if num_people > 1:
+            face_constraint = (
+                f" The reference face belongs ONLY to Person 1 ({person_desc[:50]}). "
+                f"The other {num_people - 1} person(s) must have COMPLETELY DIFFERENT faces. "
+                "Do NOT apply the reference face to anyone else."
+            )
+        pulid_prompt = f"{prompt} The main subject is {person_desc}.{face_constraint}"
         # Fast usa menos pasos para ser rápido pero SÍ aplica la cara
         steps = 12 if quality == "fast" else 28
         weight = 0.85 if quality == "fast" else 0.95
-        print(f"  Stage 1: PuLID ({face_people[0]['ref']}, steps={steps}, id={weight}) + prompt")
+        print(f"  Stage 1: PuLID ({face_people[0]['ref']}, steps={steps}, id={weight}, people={num_people}) + prompt")
         base = pulid_generate(
             pulid_prompt, face_urls[0],
             width=width, height=height,
@@ -442,7 +460,12 @@ def generate_image(
                 "Refine this image to be MORE FAITHFUL to the reference photos. "
             )
             if bitmap_url:
-                scene_prompt += "The first reference is the spatial color/edge guide — match the overall composition and color layout. "
+                scene_prompt += (
+                    "The first reference is a SPATIAL GUIDE extracted from the original photo: "
+                    "the colored regions show WHERE each color area was in the original composition, "
+                    "and the white lines/dots mark OBJECT BOUNDARIES and EDGES from the original photo. "
+                    "Use this guide to place elements in the correct spatial positions and match the color layout. "
+                )
             if categorized_refs.get("place_urls"):
                 scene_prompt += (
                     "The venue reference photos show the EXACT real location where this photo was taken. "

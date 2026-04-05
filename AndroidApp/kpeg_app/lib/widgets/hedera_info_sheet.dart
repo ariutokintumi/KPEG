@@ -170,23 +170,6 @@ class HederaInfoSheet extends StatelessWidget {
 
               const SizedBox(height: 24),
 
-              // ── Sección: People (futuro — deshabilitado) ──
-              _sectionHeader('People in Photo', Icons.people_rounded),
-              const SizedBox(height: 8),
-              _disabledFeature(
-                icon: Icons.face_rounded,
-                title: 'Identified People',
-                description: 'Show identified people with ENS names',
-              ),
-              const SizedBox(height: 6),
-              _disabledFeature(
-                icon: Icons.person_search_rounded,
-                title: 'Identify Unknown Faces',
-                description: 'Reconstruct photo revealing unknown faces',
-              ),
-
-              const SizedBox(height: 24),
-
               // ── Sección: Image Details ──
               _sectionHeader('Image Details', Icons.info_outline_rounded),
               const SizedBox(height: 8),
@@ -296,69 +279,6 @@ class HederaInfoSheet extends StatelessWidget {
               constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
             ),
         ],
-      ),
-    );
-  }
-
-  Widget _disabledFeature({
-    required IconData icon,
-    required String title,
-    required String description,
-  }) {
-    return Opacity(
-      opacity: 0.4,
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.03),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: Colors.white, size: 18),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    description,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: const Text(
-                'SOON',
-                style: TextStyle(
-                  color: Colors.white54,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1,
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

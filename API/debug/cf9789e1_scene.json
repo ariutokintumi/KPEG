@@ -1,0 +1,174 @@
+{
+  "v": 1,
+  "s": {
+    "d": "Man in white cap and navy polo shirt sitting casually on a black chair with one leg extended, wearing a blue conference badge, positioned in the foreground of Hall Hakers event space with tropical plants, hammocks, and green architectural elements in background.",
+    "mood": "casual",
+    "light": {
+      "dir": "above",
+      "type": "artificial",
+      "warmth": "neutral"
+    },
+    "depth": "subject in fg on turquoise platform, plants and hammocks in mg, other attendees and signage in bg",
+    "style": "documentary event photography"
+  },
+  "o": [
+    {
+      "n": "person",
+      "b": [
+        0.3,
+        0.25,
+        0.36,
+        0.32
+      ],
+      "d": "Man mid-30s, white cap, short beard, blue polo with white logo, blue conference badge on lanyard, blue jeans, white sneakers, sitting relaxed on black chair with right leg extended, smiling at camera",
+      "ref": "usr_german_9292"
+    },
+    {
+      "n": "silla",
+      "b": [
+        0.28,
+        0.52,
+        0.4,
+        0.68
+      ],
+      "d": "black wooden chair with black seat cushion, occupied by seated man",
+      "ref": "obj_silla_34421"
+    },
+    {
+      "n": "silla",
+      "b": [
+        0.38,
+        0.58,
+        0.48,
+        0.72
+      ],
+      "d": "black wooden chair, empty, adjacent to subject",
+      "ref": "obj_silla_2884"
+    },
+    {
+      "n": "palmera",
+      "b": [
+        0.05,
+        0.15,
+        0.22,
+        0.7
+      ],
+      "d": "tall tropical palm plant in wooden planter, left foreground",
+      "ref": "obj_palmera_92652"
+    },
+    {
+      "n": "amaca",
+      "b": [
+        0.35,
+        0.25,
+        0.7,
+        0.5
+      ],
+      "d": "red and black striped hammock suspended across hall, mid-ground",
+      "ref": "obj_amaca_14625"
+    },
+    {
+      "n": "sombrilla",
+      "b": [
+        0.35,
+        0.08,
+        0.55,
+        0.28
+      ],
+      "d": "large green hanging umbrella-like decorative elements, suspended from ceiling",
+      "ref": "obj_sombrilla_52180"
+    },
+    {
+      "n": "planta",
+      "b": [
+        0.1,
+        0.35,
+        0.25,
+        0.55
+      ],
+      "d": "potted tropical plant in wooden container",
+      "ref": "obj_planta_30099"
+    },
+    {
+      "n": "rollup",
+      "b": [
+        0.55,
+        0.25,
+        0.75,
+        0.65
+      ],
+      "d": "travel-themed rollup banner with destination imagery in background",
+      "ref": "obj_rollup_28208"
+    },
+    {
+      "n": "techo",
+      "b": [
+        0.0,
+        0.0,
+        1.0,
+        0.12
+      ],
+      "d": "corrugated metal ceiling with integrated ceiling lights and exit sign",
+      "ref": "obj_techo_53480"
+    }
+  ],
+  "t": [
+    {
+      "text": "Mentor S",
+      "b": [
+        0.7,
+        0.28,
+        0.95,
+        0.35
+      ],
+      "type": "sign"
+    },
+    {
+      "text": "H-34",
+      "b": [
+        0.85,
+        0.02,
+        0.95,
+        0.08
+      ],
+      "type": "sign"
+    }
+  ],
+  "colors": [
+    "#008B8B",
+    "#1A1A1A",
+    "#FFFFFF",
+    "#2C3E50",
+    "#7CB342"
+  ],
+  "p": {
+    "place": "place_hall_hakers_26049",
+    "place_refs": [
+      {
+        "id": "place_hall_hakers_26049_p14",
+        "hint": "facing -68deg, tilt 41deg"
+      },
+      {
+        "id": "place_hall_hakers_26049_p16",
+        "hint": "facing -62deg, tilt 40deg"
+      }
+    ]
+  },
+  "m": {
+    "ts": 1775361763,
+    "tz": "Europe/Paris",
+    "loc": [
+      43.5496919,
+      7.0179085
+    ],
+    "compass": -114.85863308309048,
+    "tilt": 42.39231310739939,
+    "dev": "SM-S921B"
+  },
+  "c": {
+    "fl": 4.7,
+    "ap": 1.8,
+    "zm": 1.0
+  },
+  "sid": "sess_20260405_0602"
+}

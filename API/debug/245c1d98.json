@@ -1,0 +1,29 @@
+{
+  "orientation": "portrait",
+  "timestamp": 1775362152,
+  "timezone": "Europe/Paris",
+  "device_model": "SM-S921B",
+  "is_outdoor": false,
+  "lat": 43.5496626,
+  "lng": 7.0179016,
+  "compass_heading": -89.37611936531086,
+  "camera_tilt": 50.5030144889258,
+  "people": [
+    {
+      "user_id": "usr_jose_m_63059",
+      "bbox": [
+        0.41,
+        0.24,
+        0.53,
+        0.32
+      ]
+    }
+  ],
+  "lens_info": {
+    "focal_length_mm": 4.7,
+    "aperture": 1.8,
+    "zoom_level": 1.0
+  },
+  "flash_used": false,
+  "session_id": "sess_20260405_0602"
+}

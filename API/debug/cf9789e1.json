@@ -1,0 +1,30 @@
+{
+  "orientation": "landscape",
+  "timestamp": 1775361763,
+  "timezone": "Europe/Paris",
+  "device_model": "SM-S921B",
+  "is_outdoor": false,
+  "lat": 43.5496919,
+  "lng": 7.0179085,
+  "compass_heading": -114.85863308309048,
+  "camera_tilt": 42.39231310739939,
+  "people": [
+    {
+      "user_id": "usr_german_9292",
+      "bbox": [
+        0.3,
+        0.25,
+        0.36,
+        0.32
+      ]
+    }
+  ],
+  "lens_info": {
+    "focal_length_mm": 4.7,
+    "aperture": 1.8,
+    "zoom_level": 1.0
+  },
+  "flash_used": false,
+  "indoor_place_id": "place_hall_hakers_26049",
+  "session_id": "sess_20260405_0602"
+}
