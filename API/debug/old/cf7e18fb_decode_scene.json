@@ -1,0 +1,161 @@
+{
+  "v": 1,
+  "s": {
+    "d": "Man in navy ETHGlobal t-shirt and credential badge sitting cross-legged on a black chair, smiling at camera, in a modern event hall with tropical plants, hammocks, and lounge seating scattered throughout.",
+    "mood": "casual",
+    "light": {
+      "dir": "above",
+      "type": "artificial",
+      "warmth": "neutral"
+    },
+    "depth": "subject center, plants and hammocks in mid-ground, exit sign and attendees in background",
+    "style": "documentary event photography"
+  },
+  "o": [
+    {
+      "n": "person",
+      "b": [
+        0.38,
+        0.35,
+        0.43,
+        0.43
+      ],
+      "d": "man mid-30s, wearing navy ETHGlobal t-shirt with white logo, blue credential lanyard, white cap, gray jeans, white sneakers, sitting cross-legged on black chair with relaxed posture, smiling directly at camera",
+      "ref": "usr_german_48869"
+    },
+    {
+      "n": "silla",
+      "b": [
+        0.35,
+        0.45,
+        0.48,
+        0.58
+      ],
+      "d": "black folding chair, occupied by subject",
+      "ref": "obj_silla_34421"
+    },
+    {
+      "n": "palmera",
+      "b": [
+        0.08,
+        0.15,
+        0.18,
+        0.65
+      ],
+      "d": "large potted palm plant in wooden planter, foreground left",
+      "ref": "obj_palmera_92652"
+    },
+    {
+      "n": "planta",
+      "b": [
+        0.62,
+        0.2,
+        0.72,
+        0.45
+      ],
+      "d": "green potted plant, mid-ground right",
+      "ref": "obj_planta_30099"
+    },
+    {
+      "n": "amaca",
+      "b": [
+        0.55,
+        0.25,
+        0.75,
+        0.42
+      ],
+      "d": "burgundy and black hammock setup with frame",
+      "ref": "obj_amaca_14625"
+    },
+    {
+      "n": "columna",
+      "b": [
+        0.15,
+        0.0,
+        0.2,
+        0.55
+      ],
+      "d": "white support column",
+      "ref": "obj_columna_5151"
+    },
+    {
+      "n": "techo",
+      "b": [
+        0.0,
+        0.0,
+        1.0,
+        0.15
+      ],
+      "d": "geometric grid ceiling with embedded LED panel lights",
+      "ref": "obj_techo_53480"
+    }
+  ],
+  "t": [
+    {
+      "text": "Mentor",
+      "b": [
+        0.78,
+        0.18,
+        0.95,
+        0.22
+      ],
+      "type": "sign"
+    },
+    {
+      "text": "1->2",
+      "b": [
+        0.87,
+        0.32,
+        0.92,
+        0.38
+      ],
+      "type": "sign"
+    }
+  ],
+  "colors": [
+    "#1a1a1a",
+    "#4a9bb5",
+    "#ffffff",
+    "#2d5a66",
+    "#d4af37"
+  ],
+  "p": {
+    "place": "place_hall_ethglobal_52568",
+    "indoor": "sentado ",
+    "place_refs": [
+      {
+        "id": "place_hall_ethglobal_52568_p6",
+        "hint": "reference view"
+      },
+      {
+        "id": "place_hall_ethglobal_52568_p7",
+        "hint": "reference view"
+      },
+      {
+        "id": "place_hall_ethglobal_52568_p1",
+        "hint": "facing -92deg, tilt 51deg"
+      }
+    ]
+  },
+  "m": {
+    "ts": 1775352192,
+    "tz": "Europe/Paris",
+    "loc": [
+      43.5496979,
+      7.0179101
+    ],
+    "compass": -93.16354805254214,
+    "tilt": 50.999408729368945,
+    "dev": "SM-S921B"
+  },
+  "c": {
+    "fl": 4.7,
+    "ap": 1.8,
+    "zm": 1.0
+  },
+  "hint": "german sentado",
+  "tags": [
+    "hackathon"
+  ],
+  "sid": "sess_20260405_0323"
+}

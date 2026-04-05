@@ -1,0 +1,162 @@
+{
+  "v": 1,
+  "s": {
+    "d": "Man in navy polo shirt wearing event badge sitting casually on black chair with leg raised, smiling at camera in an open hall with tropical plants, hammocks, and dome umbrellas; person in black hoodie standing nearby with bicycle.",
+    "mood": "casual",
+    "light": {
+      "dir": "above",
+      "type": "artificial",
+      "warmth": "neutral"
+    },
+    "depth": "man seated fg, cyclist and plants mg, hammocks and exit signs bg",
+    "style": "documentary event photography"
+  },
+  "o": [
+    {
+      "n": "person",
+      "b": [
+        0.35,
+        0.29,
+        0.4,
+        0.37
+      ],
+      "d": "Man mid-30s, brown cap, navy polo with event badge, gray jeans, white sneakers, seated on black chair with right leg raised, smiling relaxed pose, interacting with casual event setting",
+      "ref": "usr_german_48869"
+    },
+    {
+      "n": "person",
+      "b": [
+        0.75,
+        0.19,
+        0.78,
+        0.23
+      ],
+      "d": "Figure in black hoodie and dark clothing, long dark hair, standing holding bicycle, neutral expression, positioned right side of hall space",
+      "ref": "unknown1"
+    },
+    {
+      "n": "palmera",
+      "b": [
+        0.05,
+        0.15,
+        0.18,
+        0.65
+      ],
+      "d": "Tall potted palm plant in wooden planter, left foreground, flanking seating area",
+      "ref": "obj_palmera_92652"
+    },
+    {
+      "n": "silla",
+      "b": [
+        0.33,
+        0.35,
+        0.42,
+        0.42
+      ],
+      "d": "Black modern chair, occupied by seated man",
+      "ref": "obj_silla_34421"
+    },
+    {
+      "n": "sombrilla",
+      "b": [
+        0.42,
+        0.15,
+        0.58,
+        0.32
+      ],
+      "d": "Two large dome umbrellas in sage green, suspended backdrop decoration behind seating area",
+      "ref": "obj_sombrilla_52180"
+    },
+    {
+      "n": "amaca",
+      "b": [
+        0.48,
+        0.3,
+        0.72,
+        0.5
+      ],
+      "d": "Red fabric hammocks strung between stands in middle ground",
+      "ref": "obj_amaca_14625"
+    },
+    {
+      "n": "mesita",
+      "b": [
+        0.08,
+        0.38,
+        0.32,
+        0.48
+      ],
+      "d": "Small wooden side table with potted plant, turquoise surface",
+      "ref": "obj_mesita_19161"
+    },
+    {
+      "n": "planta",
+      "b": [
+        0.56,
+        0.42,
+        0.66,
+        0.58
+      ],
+      "d": "Potted tropical plant in wooden planter, middle background",
+      "ref": "obj_planta_30099"
+    }
+  ],
+  "t": [
+    {
+      "text": "Mentor Station",
+      "b": [
+        0.78,
+        0.15,
+        0.95,
+        0.22
+      ],
+      "type": "sign"
+    }
+  ],
+  "colors": [
+    "#1a5f7a",
+    "#f5f5f5",
+    "#8b7355",
+    "#d4af37",
+    "#2a2a2a"
+  ],
+  "p": {
+    "place": "place_hall_hackers_80106",
+    "indoor": "sentado ",
+    "place_refs": [
+      {
+        "id": "place_hall_hackers_80106_p11",
+        "hint": "facing 138deg, tilt 9deg"
+      },
+      {
+        "id": "place_hall_hackers_80106_p8",
+        "hint": "facing 156deg, tilt 2deg"
+      },
+      {
+        "id": "place_hall_hackers_80106_p10",
+        "hint": "facing -127deg, tilt -2deg"
+      }
+    ]
+  },
+  "m": {
+    "ts": 1775354409,
+    "tz": "Europe/Paris",
+    "loc": [
+      43.5497166,
+      7.0179283
+    ],
+    "compass": 146.8688473831105,
+    "tilt": 5.656388913702145,
+    "dev": "SM-S921B"
+  },
+  "c": {
+    "fl": 4.7,
+    "ap": 1.8,
+    "zm": 1.0
+  },
+  "hint": "german sentado ",
+  "tags": [
+    "hackathon"
+  ],
+  "sid": "sess_20260405_0400"
+}

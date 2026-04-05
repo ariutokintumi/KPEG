@@ -1,0 +1,35 @@
+{
+  "orientation": "landscape",
+  "timestamp": 1775352192,
+  "timezone": "Europe/Paris",
+  "device_model": "SM-S921B",
+  "is_outdoor": false,
+  "lat": 43.5496979,
+  "lng": 7.0179101,
+  "compass_heading": -93.16354805254214,
+  "camera_tilt": 50.999408729368945,
+  "people": [
+    {
+      "user_id": "usr_german_48869",
+      "bbox": [
+        0.38,
+        0.35,
+        0.43,
+        0.43
+      ]
+    }
+  ],
+  "scene_hint": "german sentado",
+  "tags": [
+    "hackathon"
+  ],
+  "lens_info": {
+    "focal_length_mm": 4.7,
+    "aperture": 1.8,
+    "zoom_level": 1.0
+  },
+  "flash_used": false,
+  "indoor_place_id": "place_hall_ethglobal_52568",
+  "indoor_description": "sentado ",
+  "session_id": "sess_20260405_0323"
+}

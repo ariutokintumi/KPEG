@@ -1,0 +1,162 @@
+{
+  "v": 1,
+  "s": {
+    "d": "Man wearing white cap and navy polo shirt with ID badge sitting on black chair with leg raised, smiling at camera in modern indoor event space with turquoise accent wall, hammocks, tropical plants, and beach-themed decor.",
+    "mood": "casual",
+    "light": {
+      "dir": "above",
+      "type": "artificial",
+      "warmth": "neutral"
+    },
+    "depth": "man in foreground on turquoise platform, hammocks and plants in middle ground, white walls and doors in background",
+    "style": "documentary photography"
+  },
+  "o": [
+    {
+      "n": "person",
+      "b": [
+        0.33,
+        0.28,
+        0.62,
+        0.85
+      ],
+      "d": "man mid-30s, white baseball cap, dark beard, navy polo with white logo, ID badge on lanyard, light blue jeans, white sneakers, sitting on black wooden chair with right leg raised, smiling directly at camera, relaxed posture",
+      "ref": "usr_german_48869"
+    },
+    {
+      "n": "silla",
+      "b": [
+        0.35,
+        0.65,
+        0.45,
+        0.78
+      ],
+      "d": "black wooden chair with black cushioned seat, occupied by man",
+      "ref": "obj_silla_34421"
+    },
+    {
+      "n": "silla",
+      "b": [
+        0.72,
+        0.65,
+        0.82,
+        0.78
+      ],
+      "d": "black wooden chair with black cushioned seat, unoccupied, right of frame",
+      "ref": "obj_silla_2884"
+    },
+    {
+      "n": "amaca",
+      "b": [
+        0.48,
+        0.35,
+        0.85,
+        0.58
+      ],
+      "d": "red and burgundy striped hammock suspended on stand, middle ground",
+      "ref": "obj_amaca_14625"
+    },
+    {
+      "n": "amaca 2",
+      "b": [
+        0.62,
+        0.38,
+        0.92,
+        0.62
+      ],
+      "d": "additional red striped hammock on stand in background right",
+      "ref": "obj_amaca_2_55162"
+    },
+    {
+      "n": "palmera",
+      "b": [
+        0.04,
+        0.25,
+        0.22,
+        0.7
+      ],
+      "d": "potted palm plant with green fronds, left side of frame",
+      "ref": "obj_palmera_92652"
+    },
+    {
+      "n": "planta",
+      "b": [
+        0.75,
+        0.45,
+        0.88,
+        0.62
+      ],
+      "d": "small potted green plant near hammocks",
+      "ref": "obj_planta_30099"
+    },
+    {
+      "n": "mesita",
+      "b": [
+        0.1,
+        0.55,
+        0.25,
+        0.75
+      ],
+      "d": "wooden side table or planter box left side",
+      "ref": "obj_mesita_19161"
+    }
+  ],
+  "t": [
+    {
+      "text": "ID BADGE VISIBLE ON LANYARD",
+      "b": [
+        0.42,
+        0.38,
+        0.48,
+        0.45
+      ],
+      "type": "label"
+    }
+  ],
+  "colors": [
+    "#1e3a5f",
+    "#4db8d4",
+    "#ffffff",
+    "#a0a0a0",
+    "#8b4513"
+  ],
+  "p": {
+    "place": "place_hall_ethglobal_52568",
+    "indoor": "sentado ",
+    "place_refs": [
+      {
+        "id": "place_hall_ethglobal_52568_p6",
+        "hint": "reference view"
+      },
+      {
+        "id": "place_hall_ethglobal_52568_p7",
+        "hint": "reference view"
+      },
+      {
+        "id": "place_hall_ethglobal_52568_p1",
+        "hint": "facing -92deg, tilt 51deg"
+      }
+    ]
+  },
+  "m": {
+    "ts": 1775348660,
+    "tz": "Europe/Paris",
+    "loc": [
+      43.5497089,
+      7.0179163
+    ],
+    "compass": -98.94162854318446,
+    "tilt": 44.30743542118524,
+    "dev": "SM-S921B"
+  },
+  "c": {
+    "fl": 4.7,
+    "ap": 1.8,
+    "zm": 1.0
+  },
+  "hint": "german est\u00e1 sentado ",
+  "tags": [
+    "hackathon"
+  ],
+  "sid": "sess_20260405_0157"
+}

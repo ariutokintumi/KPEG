@@ -120,11 +120,15 @@ def select_best_place_refs(
     target_compass: Optional[float] = None,
     target_tilt: Optional[float] = None,
     max_refs: int = 3,
+    strict_angle: float = 30.0,
 ) -> list[dict]:
-    """Pick up to max_refs place photos closest to the target camera angle.
+    """Pick the BEST place photo closest to the target camera angle.
+
+    Only adds extra refs if they are within strict_angle degrees of the best match.
+    One great photo > three mediocre ones.
 
     Scoring: circular angular distance (compass) + weighted absolute tilt delta.
-    Returns: [{"id", "hint", "file_path"}, ...] sorted by proximity.
+    Returns: [{"id", "hint", "file_path", "distance"}, ...] sorted by proximity.
     """
     photos = get_place_photos(place_id)
     if not photos:
@@ -132,18 +136,33 @@ def select_best_place_refs(
 
     def distance(photo):
         d = 0.0
-        if target_compass is not None and photo["compass_heading"] is not None:
-            diff = abs(photo["compass_heading"] - target_compass) % 360
-            d += min(diff, 360 - diff)  # circular
-        if target_tilt is not None and photo["camera_tilt"] is not None:
-            d += abs(photo["camera_tilt"] - target_tilt) * 2  # weight modestly
+        if target_compass is not None:
+            if photo["compass_heading"] is not None:
+                diff = abs(photo["compass_heading"] - target_compass) % 360
+                d += min(diff, 360 - diff)  # circular
+            else:
+                d += 999  # penalizar fotos sin compass
+        if target_tilt is not None:
+            if photo["camera_tilt"] is not None:
+                d += abs(photo["camera_tilt"] - target_tilt) * 2
+            else:
+                d += 999  # penalizar fotos sin tilt
         return d
 
     if target_compass is not None or target_tilt is not None:
         photos.sort(key=distance)
 
     refs = []
-    for p in photos[:max_refs]:
+    best_dist = None
+    for p in photos:
+        if len(refs) >= max_refs:
+            break
+        d = distance(p)
+        if best_dist is None:
+            best_dist = d  # primera = la mejor
+        elif d > best_dist + strict_angle:
+            break  # las siguientes están demasiado lejos, no aportan
+
         hint_parts = []
         if p["compass_heading"] is not None:
             hint_parts.append(f"facing {int(p['compass_heading'])}deg")
@@ -153,6 +172,7 @@ def select_best_place_refs(
             "id": f"{place_id}_p{p['id']}",
             "hint": ", ".join(hint_parts) if hint_parts else "reference view",
             "file_path": _normalize_library_path(p["file_path"]),
+            "distance": round(d, 1),
         })
     return refs
 

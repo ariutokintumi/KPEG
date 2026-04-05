@@ -71,35 +71,56 @@ def _collect_reference_urls(
     metadata: dict,
     guide_image: Optional[Image.Image] = None,
 ) -> list[str]:
-    """Walk the scene refs + place metadata to build the library reference list.
+    """Legacy flat list (for backward compat). Merges all categories."""
+    refs = _collect_categorized_refs(scene, metadata, guide_image)
+    flat = refs["face_urls"] + ([refs["bitmap_url"]] if refs["bitmap_url"] else []) + refs["place_urls"] + refs["object_urls"]
+    return flat[:MAX_REFERENCE_IMAGES]
 
-    Priority order (so people are kept first when truncating):
-      1. usr_xxx (faces) — identity preservation
-      2. bitmap color-DNA guide — structural anchor (critical for fast/high tiers
-         whose Stage-1 model is t2i and therefore ignores the bitmap)
-      3. place refs closest to camera angle
-      4. obj_xxx (distinctive objects)
 
-    The bitmap guide is always first-after-faces so Stage 2 Kontext always
-    receives color/composition guidance — otherwise the hard work done by the
-    bitmap generator at encode time would be wasted on t2i tiers.
+def _collect_categorized_refs(
+    scene: dict,
+    metadata: dict,
+    guide_image: Optional[Image.Image] = None,
+) -> dict:
+    """Build categorized reference lists for multi-pass Stage 2.
+
+    Returns dict with separate lists so each Kontext pass can focus:
+      - face_urls: person selfies (identity preservation)
+      - face_people: [{ref, description}] per person (for prompt)
+      - bitmap_url: rendered color guide (structural anchor)
+      - place_urls: angle-matched place photos (venue background)
+      - object_urls: distinctive object photos
+      - object_descriptions: [description] per object (for prompt)
     """
-    prioritized: list[tuple[int, str]] = []
+    face_urls: list[str] = []
+    face_people: list[dict] = []
+    place_urls: list[str] = []
+    object_urls: list[str] = []
+    object_descriptions: list[str] = []
+    bitmap_url: Optional[str] = None
 
-    # People first — faces matter most for identity preservation
+    # People — up to 2 selfies per person
     for obj in scene.get("o") or []:
         ref = obj.get("ref", "")
         if ref.startswith("usr_"):
-            for path in get_person_photos(ref)[:2]:  # up to 2 selfies per person
+            person_urls = []
+            for path in get_person_photos(ref)[:2]:
                 url = _file_path_to_data_url(path)
                 if url:
-                    prioritized.append((_REF_PRIORITY_PEOPLE, url))
+                    person_urls.append(url)
+                    face_urls.append(url)
+            if person_urls:
+                face_people.append({
+                    "ref": ref,
+                    "description": obj.get("d", ""),
+                    "url_count": len(person_urls),
+                })
 
-    # Bitmap color-DNA guide — ensures Stage 2 Kontext always has structural input
+    # Bitmap
     if guide_image is not None:
-        prioritized.append((_REF_PRIORITY_BITMAP, _pil_to_data_url(guide_image)))
+        bitmap_url = _pil_to_data_url(guide_image)
 
-    # Places — pick angle-matched refs
+    # Places — angle-matched
     place_id = (scene.get("p") or {}).get("place")
     if place_id:
         place_refs = select_best_place_refs(
@@ -111,9 +132,9 @@ def _collect_reference_urls(
         for pr in place_refs:
             url = _file_path_to_data_url(pr["file_path"])
             if url:
-                prioritized.append((_REF_PRIORITY_PLACES, url))
+                place_urls.append(url)
 
-    # Objects last (distinctive items)
+    # Objects
     seen_object_ids: set[str] = set()
     for obj in scene.get("o") or []:
         ref = obj.get("ref", "")
@@ -123,11 +144,17 @@ def _collect_reference_urls(
             if photos:
                 url = _file_path_to_data_url(photos[0])
                 if url:
-                    prioritized.append((_REF_PRIORITY_OBJECTS, url))
+                    object_urls.append(url)
+                    object_descriptions.append(obj.get("d", ref))
 
-    # Sort by priority (stable), truncate
-    prioritized.sort(key=lambda t: t[0])
-    return [url for _, url in prioritized[:MAX_REFERENCE_IMAGES]]
+    return {
+        "face_urls": face_urls,
+        "face_people": face_people,
+        "bitmap_url": bitmap_url,
+        "place_urls": place_urls,
+        "object_urls": object_urls,
+        "object_descriptions": object_descriptions,
+    }
 
 
 def _compute_output_size(aspect_w: int, aspect_h: int, max_dim: int = 1024) -> tuple[int, int]:
@@ -178,18 +205,17 @@ def decode(
     guide_size = min(512, max(out_w, out_h))
     guide = render_bitmap(custom_palette, grid, keypoints, width=guide_size, height=guide_size)
 
-    # 5. Resolve library refs — bitmap goes in too, so t2i tiers still get
-    #    structural guidance via Stage 2 Kontext
+    # 5. Resolve library refs — categorized for multi-pass Stage 2
     metadata = scene.get("m") or {}
-    reference_urls = _collect_reference_urls(scene, metadata, guide_image=guide)
+    categorized_refs = _collect_categorized_refs(scene, metadata, guide_image=guide)
 
-    # 6. Generate via FLUX
+    # 6. Generate via FLUX (multi-pass: faces separate from scene)
     camera = scene.get("c") or {}
     colors = scene.get("colors") or []
     result_img = generate_image(
         scene=scene,
         guide_image=guide,
-        reference_urls=reference_urls,
+        categorized_refs=categorized_refs,
         quality=quality,
         width=out_w,
         height=out_h,

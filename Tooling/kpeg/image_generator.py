@@ -92,12 +92,24 @@ def build_prompt(scene: dict, camera: Optional[dict] = None, colors: Optional[li
     if main:
         parts.append(f"Photograph: {main.strip()}")
 
-    # People inline — they ARE the subjects. Emphasize with "Subjects:" tag.
+    # People inline — with spatial position from bounding box
     person_phrases = []
     for o in scene.get("o") or []:
         if o.get("n") == "person":
             d = o.get("d")
-            if d:
+            if not d:
+                continue
+            b = o.get("b")
+            if b and len(b) == 4:
+                cx = (b[0] + b[2]) / 2
+                if cx < 0.33:
+                    pos = "left side"
+                elif cx > 0.67:
+                    pos = "right side"
+                else:
+                    pos = "center"
+                person_phrases.append(f"{d.strip()} (positioned {pos} of frame)")
+            else:
                 person_phrases.append(d.strip())
     if person_phrases:
         parts.append("Subjects: " + "; ".join(person_phrases))
@@ -143,13 +155,31 @@ def build_prompt(scene: dict, camera: Optional[dict] = None, colors: Optional[li
     if cam_bits:
         parts.append(", ".join(cam_bits))
 
-    # Non-person object sub-prompts
+    # Non-person object sub-prompts with spatial positioning
     obj_phrases = []
     for o in scene.get("o") or []:
         if o.get("n") == "person":
             continue
         d = o.get("d")
-        if d:
+        if not d:
+            continue
+        # Añadir posición espacial del bounding box para guiar a FLUX
+        b = o.get("b")
+        if b and len(b) == 4:
+            cx = (b[0] + b[2]) / 2
+            if cx < 0.33:
+                pos = "on the left"
+            elif cx > 0.67:
+                pos = "on the right"
+            else:
+                pos = "in the center"
+            cy = (b[1] + b[3]) / 2
+            if cy < 0.33:
+                pos += " top"
+            elif cy > 0.67:
+                pos += " bottom"
+            obj_phrases.append(f"{d.strip()} ({pos})")
+        else:
             obj_phrases.append(d.strip())
     if obj_phrases:
         parts.append(", ".join(obj_phrases))
@@ -256,6 +286,29 @@ def stage2_refine(
     return _extract_image_from_result(result)
 
 
+def face_swap(
+    image: Image.Image,
+    face_url: str,
+    submit: Optional[Callable[[str, dict], dict]] = None,
+) -> Image.Image:
+    """Swap the face in image with the reference face photo.
+
+    Uses a dedicated face-swap model (NOT Kontext) for precise identity.
+    Much more reliable than asking a general model to "apply this face".
+    """
+    submit = submit or _default_submit
+    args = {
+        "base_image_url": _image_to_data_url(image, fmt="PNG"),
+        "swap_image_url": face_url,
+    }
+    try:
+        result = submit("fal-ai/face-swap", args)
+        return _extract_image_from_result(result)
+    except Exception as e:
+        print(f"  Face-swap failed: {e}")
+        return image  # devolver imagen sin cambio si falla
+
+
 def upscale(
     image: Image.Image,
     scale: int = 2,
@@ -274,6 +327,7 @@ def upscale(
 def generate_image(
     scene: dict,
     guide_image: Image.Image,
+    categorized_refs: Optional[dict] = None,
     reference_urls: Optional[list[str]] = None,
     quality: str = "balanced",
     width: int = 1024,
@@ -284,10 +338,17 @@ def generate_image(
 ) -> Image.Image:
     """Full decoder image pipeline: scene JSON + guide → reconstructed photo.
 
+    Multi-pass Stage 2 (when categorized_refs provided):
+      Stage 2A: Face identity — selfies only + face-focused prompt
+      Stage 2B: Scene refinement — bitmap + places + objects + scene prompt
+
+    Falls back to single-pass if only flat reference_urls provided.
+
     Args:
         scene: parsed KPEG scene dict (s, o, t, ...).
         guide_image: rendered color guide from bitmap (PIL image).
-        reference_urls: library photo URLs/data-URLs for Stage 2 (faces, places, objects).
+        categorized_refs: dict with face_urls, bitmap_url, place_urls, object_urls, etc.
+        reference_urls: legacy flat list (used if categorized_refs is None).
         quality: "fast" | "balanced" | "high".
         width, height: output dimensions.
         camera: KPEG c section (aperture, focal length, zoom, flash).
@@ -316,8 +377,54 @@ def generate_image(
         submit=submit,
     )
 
-    # Stage 2 only if we have references AND not the fast tier
-    if quality != "fast" and reference_urls:
+    # Stage 2 — skip entirely for fast tier
+    if quality == "fast":
+        return base
+
+    if categorized_refs is not None:
+        # ── Multi-pass Stage 2 ──
+
+        # Stage 2A: Scene + objects refinement (Kontext)
+        scene_urls = []
+        bitmap_url = categorized_refs.get("bitmap_url")
+        if bitmap_url:
+            scene_urls.append(bitmap_url)
+        scene_urls.extend(categorized_refs.get("place_urls", []))
+        scene_urls.extend(categorized_refs.get("object_urls", []))
+
+        if scene_urls:
+            obj_descriptions = categorized_refs.get("object_descriptions", [])
+            scene_prompt = (
+                "Refine the background and objects to match the reference images. "
+                "The first reference is the color/composition guide. "
+            )
+            if categorized_refs.get("place_urls"):
+                scene_prompt += "The venue/background photos show the exact location — match the architecture, furniture layout, and atmosphere. "
+            if obj_descriptions:
+                scene_prompt += "These specific objects must appear: " + ", ".join(obj_descriptions) + ". "
+            scene_prompt += "Keep the people and their poses exactly as they are."
+            base = stage2_refine(base, scene_prompt, scene_urls, submit=submit)
+
+        # Stage 2B: Face swap (dedicated model — NOT Kontext)
+        # Usa modelo de face-swap especializado para cada persona.
+        # Mucho más fiable que pedirle a un modelo general que "aplique una cara".
+        face_urls = categorized_refs.get("face_urls", [])
+        face_people = categorized_refs.get("face_people", [])
+        if face_urls and face_people:
+            # Usar la primera selfie de cada persona para face-swap
+            for fp in face_people:
+                # Tomar la primera selfie de esta persona (la más frontal suele ser la primera)
+                idx_start = 0
+                for prev_fp in face_people:
+                    if prev_fp is fp:
+                        break
+                    idx_start += prev_fp["url_count"]
+                if idx_start < len(face_urls):
+                    print(f"  Face-swap: applying {fp['ref']} face...")
+                    base = face_swap(base, face_urls[idx_start], submit=submit)
+
+    elif reference_urls:
+        # ── Legacy single-pass Stage 2 (backward compat) ──
         person_prompt = build_person_prompt(scene)
         refine_prompt = prompt
         if person_prompt:

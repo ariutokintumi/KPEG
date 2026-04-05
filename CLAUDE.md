@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **KPEG** is a ultra-compressed image format (~1-2KB) developed at the ETHGlobal Cannes Hackathon. A photo is encoded into a tiny `.kpeg` file containing a color bitmap, metadata, and an AI scene description. An AI later reconstructs a visually similar photo from that data. The pitch: "Your entire life's photo library fitting on a floppy disk."
 
-**Team:** 2 people. This repo covers the **App** + **full backend** (Python/Flask). A teammate will replace the `/encode` and `/decode` mockups with real AI processing.
+**Team:** 2 people. Jose Maria builds the App + API integration + Hedera. German builds the KPEG engine (`Tooling/kpeg/`) — real AI encode (Claude Vision) and decode (FLUX).
 
 **Privacy-first:** Face detection AND identification happen entirely on-device. No biometric data leaves the phone. Person selfies are sent to the server only for AI image reconstruction purposes.
 
@@ -55,14 +55,27 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 5. Auto-tags by confidence: >0.8 green, 0.5-0.8 yellow, <0.5 red ("Unknown")
 6. User can correct/assign faces manually, select indoor place
 7. App sends photo + metadata JSON to **`POST /encode`**
-8. Backend returns `.kpeg` binary file (≤2KB)
-9. App saves `.kpeg` + local thumbnail to storage
+8. Backend: Claude Vision analyzes scene → palette + bitmap + compressed scene JSON → `.kpeg` ≤2.5KB
+9. Backend registers on Hedera (File Service + HCS + NFT)
+10. Returns JSON `{kpeg_base64, image_id, hedera}` to app
+11. App saves `.kpeg` + local thumbnail to storage
 
-### Decoding (.kpeg → reconstructed photo)
+### Decoding (.kpeg → reconstructed photo) — multi-pass pipeline
 1. User taps a `.kpeg` file in the gallery (shows local thumbnail)
 2. App sends it to **`POST /decode`** with quality param (fast/balanced/high)
-3. Backend returns reconstructed JPEG (takes 5-15 seconds)
+3. Backend pipeline:
+   - **Stage 1**: FLUX generates base image from prompt + bitmap (i2i for balanced, t2i for fast/high)
+   - **Stage 2A** (balanced/high): Kontext refines scene with place + object references
+   - **Stage 2B** (balanced/high): Dedicated face-swap model (`fal-ai/face-swap`) applies exact face identity per person
+   - **Stage 3** (high only): Clarity upscaler 2x
 4. App displays the result
+
+### Decode Quality Tiers
+| Tier | Stage 1 | Stage 2A (Scene) | Stage 2B (Face) | Stage 3 | Time |
+|------|---------|-----------------|-----------------|---------|------|
+| fast | FLUX Schnell (t2i) | skip | skip | skip | ~2s |
+| balanced | FLUX Dev (i2i, bitmap guide) | Kontext + refs | face-swap | skip | ~15s |
+| high | FLUX Pro 1.1 (t2i) | Kontext + refs | face-swap | Clarity 2x | ~25s |
 
 ## Repository Layout
 
@@ -79,13 +92,25 @@ KPEG/
 │   │   └── widgets/           # FaceOverlay, MetadataForm, QualitySelector, KpegFileCard, etc.
 │   ├── pubspec.yaml
 │   └── android/
-├── .env                       # Hedera credentials (gitignored)
+├── .env                       # API keys + Hedera credentials (gitignored)
 ├── API/                       # Python backend (Flask + SQLite)
-│   ├── api.py                 # Flask app — all endpoints (library CRUD + encode/decode mockups)
+│   ├── api.py                 # Flask app — all endpoints
 │   ├── hedera_service.py      # Hedera SDK integration (File Service + HCS + HTS)
 │   ├── database.py            # SQLite schema (kpeg_library.db) + CRUD helpers
-│   ├── requirements.txt       # flask, Pillow, hiero-sdk-python, python-dotenv
+│   ├── debug_decode.py        # Debug tool: simulates decode, saves prompts + refs to debug/
+│   ├── requirements.txt       # flask, Pillow, hiero-sdk-python, anthropic, fal-client, etc.
 │   └── library/               # Photo storage (gitignored)
+├── Tooling/kpeg/              # KPEG engine (German's code)
+│   ├── encoder.py             # Real encode: Claude Vision → palette + bitmap + scene JSON
+│   ├── decoder.py             # Real decode: multi-pass FLUX pipeline
+│   ├── image_generator.py     # FLUX stages: generate → scene refine → face-swap → upscale
+│   ├── library_reader.py      # DB reader for resolving refs → file paths
+│   ├── scene_analyzer.py      # Claude Vision scene analysis with place context
+│   ├── format.py              # .kpeg binary format (pack/unpack)
+│   ├── compression.py         # Brotli JSON compression
+│   ├── bitmap.py              # Color bitmap encode/decode/render
+│   ├── palette.py             # KMeans color palette extraction
+│   └── config.py              # Paths, API keys, model selection
 │       ├── people/{user_id}/  # Face crop selfies
 │       ├── places/{place_id}/ # Place reference photos
 │       ├── objects/{object_id}/ # Object reference photos
@@ -114,12 +139,14 @@ flutter clean && flutter pub get               # Clean rebuild
 
 ## API Contracts
 
-### Core Pipeline (mockup — teammate will replace with AI)
+### Core Pipeline (real AI — Claude Vision + FLUX)
 
 | Endpoint | Method | Request | Response | Status |
 |----------|--------|---------|----------|--------|
-| `/encode` | POST | multipart: `image` (JPEG) + `metadata` (JSON) | JSON: `{kpeg_base64, image_id, hedera}` | **Mockup** — saves original, registers on Hedera, returns JSON |
-| `/decode` | POST | multipart: `kpeg_file` + `quality` | Reconstructed JPEG | **Mockup** — returns the saved original |
+| `/encode` | POST | multipart: `image` (JPEG) + `metadata` (JSON) | JSON: `{kpeg_base64, image_id, hedera}` | Real encode via `Tooling/kpeg/encoder.py` + Hedera |
+| `/decode` | POST | multipart: `kpeg_file` + `quality` (fast/balanced/high) | Reconstructed JPEG | Real decode via `Tooling/kpeg/decoder.py` multi-pass |
+| `/update_people` | POST | multipart: `kpeg_file` + `mapping` (JSON) | Updated .kpeg binary | Re-tag unknown persons without re-encoding |
+| `/inspect` | POST | multipart: `kpeg_file` | JSON header + scene summary | Debug: inspect .kpeg contents |
 | `/health` | GET | — | `{"status": "ok"}` | Implemented |
 
 ### People Library
@@ -299,7 +326,12 @@ The `AndroidManifest.xml` must include:
 - **API JSON field names:** Server returns `selfie_count` (people) and `photo_count` (places/objects) — not `count`. Flutter `fromApiJson()` factories must read `photo_count` to populate `photoCount` or the network thumbnail fallback won't trigger.
 - **App connects to real API** — `AppConfig.useMock = false`. Backend must be running.
 - **API URL config:** `AppConfig.apiBaseUrl` — use `10.0.2.2:8000` for emulator, PC's WiFi IP for physical device.
-- **Encode/decode are mockups** — teammate will replace `api.py` encode/decode with real AI processing. The mockup saves the original, and returns it with visual effects (blur, warm tint, boosted saturation, "Generated with AI" watermark) to simulate AI reconstruction.
+- **Encode/decode are REAL AI** — encode uses Claude Vision (scene analysis) + bitmap + Brotli compression. Decode uses multi-pass FLUX (scene generation → Kontext scene refinement → face-swap → optional upscale).
+- **Face-swap is a dedicated model** — do NOT use Kontext for face identity. Use `fal-ai/face-swap` after scene generation. Kontext cannot reliably apply faces from reference images.
+- **Place photo selection is strict** — `select_best_place_refs()` picks 1 best match by compass/tilt angle, only adds more if within 30° of best. Photos with NULL compass get penalized (distance 999).
+- **Bounding boxes in prompts** — `build_prompt()` translates bbox coordinates to spatial positions ("on the left", "center", "right top") for both people and objects.
+- **Debug decode** — `cd API && python3 debug_decode.py [kpeg_file]` simulates decode without calling AI, saves all prompts + reference files to `debug/` for inspection.
+- **Debug encode** — each `/encode` call saves input image, metadata JSON, output .kpeg, extracted bitmap, and scene JSON to `API/debug/`.
 
 ## Hedera Integration (Blockchain)
 
@@ -327,15 +359,16 @@ The `AndroidManifest.xml` must include:
 
 ## Backend (API/)
 
-**Stack:** Python + Flask + SQLite (`kpeg_library.db`)
+**Stack:** Python + Flask + SQLite (`kpeg_library.db`) + `Tooling/kpeg/` engine
 
-**Implemented endpoints:** `/health`, `/library/people/*`, `/library/places/*`, `/library/objects/*`
-**Mockup endpoints:** `/encode` (saves original, returns fake .kpeg), `/decode` (returns original with AI-style effects: blur + warm tint + saturation boost + "Generated with AI" watermark)
+**Endpoints:** `/health`, `/encode`, `/decode`, `/update_people`, `/inspect`, `/library/*`, `/hedera/*`
 
-**Dependencies:** `flask>=3.0.0`, `Pillow>=10.0.0`, `hiero-sdk-python>=0.2.0`, `python-dotenv>=1.0.0`
+**Dependencies:** `flask`, `Pillow>=10.0.0`, `numpy`, `brotli`, `anthropic`, `fal-client`, `scikit-learn`, `scipy`, `python-dotenv`, `hiero-sdk-python`
 
 **DB tables:** `people`, `people_selfies`, `places`, `place_photos`, `objects`, `object_photos`, `hedera_metadata`
 
-**Photo storage:** `library/people/{user_id}/`, `library/places/{place_id}/`, `library/objects/{object_id}/`, `library/_originals/` (encode mockup)
+**Photo storage:** `library/people/{user_id}/`, `library/places/{place_id}/`, `library/objects/{object_id}/`, `library/_kpeg/` (persisted .kpeg files)
 
-**To run:** `cd API && python3 api.py` (listens on `0.0.0.0:8000`)
+**API keys in `.env`:** `ANTHROPIC_API_KEY` (Claude Vision for encode), `FAL_KEY` (FLUX for decode), `OPERATOR_ID`/`OPERATOR_KEY` (Hedera)
+
+**To run:** `cd API && python3 api.py` (listens on `0.0.0.0:8000`). Call `POST /hedera/setup` once to init blockchain.

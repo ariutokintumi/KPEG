@@ -28,6 +28,7 @@ app = Flask(__name__)
 
 LIBRARY_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'library')
 KPEG_DIR = os.path.join(LIBRARY_DIR, '_kpeg')
+DEBUG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'debug')
 
 MAX_UPDATE_UNKNOWNS = 5
 
@@ -68,8 +69,19 @@ def encode():
     except json.JSONDecodeError:
         return jsonify({'error': 'Invalid metadata JSON'}), 422
 
+    # Debug: guardar imagen y metadata recibidos
+    image_bytes = image_file.read()
+    debug_id = str(uuid.uuid4())[:8]
+    ensure_dir(DEBUG_DIR)
+    debug_img_path = os.path.join(DEBUG_DIR, f'{debug_id}.jpg')
+    debug_meta_path = os.path.join(DEBUG_DIR, f'{debug_id}.json')
+    with open(debug_img_path, 'wb') as f:
+        f.write(image_bytes)
+    with open(debug_meta_path, 'w') as f:
+        json.dump(metadata, f, indent=2)
+    print(f'🐛 Debug saved: {debug_img_path} + {debug_meta_path}')
+
     try:
-        image_bytes = image_file.read()
         kpeg_binary = kpeg_encode(image_bytes, metadata)
     except Exception as e:
         print(f'❌ Encode failed: {e}')
@@ -83,6 +95,23 @@ def encode():
         f.write(kpeg_binary)
 
     print(f'📦 Encoded: {kpeg_id} ({len(kpeg_binary)} bytes)')
+
+    # Debug: guardar kpeg + extraer bitmap y scene JSON
+    try:
+        debug_kpeg_path = os.path.join(DEBUG_DIR, f'{debug_id}.kpeg')
+        with open(debug_kpeg_path, 'wb') as f:
+            f.write(kpeg_binary)
+        kpeg_unpacked = unpack_kpeg(kpeg_binary)
+        debug_bitmap_path = os.path.join(DEBUG_DIR, f'{debug_id}_bitmap.bin')
+        with open(debug_bitmap_path, 'wb') as f:
+            f.write(kpeg_unpacked.bitmap_data)
+        scene_json = decompress_json(kpeg_unpacked.compressed_json)
+        debug_scene_path = os.path.join(DEBUG_DIR, f'{debug_id}_scene.json')
+        with open(debug_scene_path, 'w') as f:
+            json.dump(scene_json, f, indent=2)
+        print(f'🐛 Debug kpeg: {debug_kpeg_path} | bitmap: {len(kpeg_unpacked.bitmap_data)}B | scene: {debug_scene_path}')
+    except Exception as e:
+        print(f'🐛 Debug kpeg extract failed: {e}')
 
     # Registrar en Hedera (best-effort — si falla, el encode sigue funcionando)
     hedera_info = None

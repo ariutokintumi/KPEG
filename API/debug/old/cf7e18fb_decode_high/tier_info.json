@@ -1,0 +1,7 @@
+{
+  "stage1": "FLUX Pro 1.1 (text2img) \u2014 bitmap NOT used in Stage 1",
+  "stage2": "FLUX Kontext Pro \u2014 bitmap + library refs injected",
+  "upscaler": "Clarity 2x",
+  "bitmap_usage": "Stage 2 only (reference URL)",
+  "reference_count": 8
+}
